@@ -69,8 +69,10 @@ curl -X POST https://prasannakotyal-code-review-env.hf.space/reset \
 
 ## Local Development
 
+For normal local use, install only the runtime environment:
+
 ```bash
-uv sync --extra dev
+uv sync
 uv run python -m server.app
 ```
 
@@ -111,12 +113,17 @@ The script uses the OpenAI client and emits the required hackathon logging contr
 [END] success=<true|false> steps=<n> rewards=<r1,r2,...,rn>
 ```
 
-## Validation
+## Submission Validation
 
-Run the full local validation sequence before submission:
+For the pre-submission checks below, install the development dependency set once. The `dev` extra is only for local validation tooling such as `pytest`.
 
 ```bash
 uv sync --extra dev
+```
+
+Then run the submission checks:
+
+```bash
 uv run python -m pytest -q
 uv run python -m compileall .
 uv run openenv validate . --json
