@@ -37,807 +37,532 @@ except ImportError:
 STYLE_SNIPPETS = {
     "py001": {
         "language": Language.PYTHON,
-        "code": "def calculate(a,b):\n    return a+b\n\nresult=calculate(10,20)\nprint(result)",
+        "code": """from django.shortcuts import render
+from django.http import JsonResponse
+from django.contrib.auth.models import User
+import json
+
+def get_user_profile(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+        return JsonResponse({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)""",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Function name should use snake_case",
+                description="Missing Django REST Framework - should use DRF views for proper REST API",
                 line_start=1,
                 line_end=1,
-                fix_suggestion="calculate -> calculate_sum",
+                fix_suggestion="Use rest_framework.views.APIView",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Missing spaces around operator",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="a+b -> a + b",
+                description="Catching bare Exception is anti-pattern",
+                line_start=12,
+                line_end=12,
+                fix_suggestion="Catch specific exceptions",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Variable should use snake_case",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="result -> result_value",
+                description="No authentication/permission classes defined",
+                line_start=3,
+                line_end=3,
+                fix_suggestion="Add @permission_classes",
             ),
         ],
     },
     "py002": {
         "language": Language.PYTHON,
-        "code": "import os\n\ndef getData():\n    x = 10\n    return x\n\nprint(getData())",
+        "code": """import asyncio
+import aiohttp
+from typing import Dict, List, Optional
+
+class APIClient:
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def fetch_data(self, endpoint: str, params: Dict = None) -> Dict:
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(url, headers=headers, params=params)
+            return await response.json()
+
+    async def fetch_multiple(self, endpoints: List[str]) -> List[Dict]:
+        tasks = [self.fetch_data(ep) for ep in endpoints]
+        return await asyncio.gather(*tasks)
+
+client = APIClient("https://api.example.com", "secret-key-12345")
+results = asyncio.run(client.fetch_multiple(["users", "posts"]))""",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Function name should use snake_case",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="getData -> get_data",
+                description="Hardcoded API key - security risk",
+                line_start=21,
+                line_end=21,
+                fix_suggestion="Use environment variable",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Variable name should use snake_case",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="x -> value",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Unused import os",
-                line_start=1,
-                line_end=1,
+                description="Creating new session for each request - inefficient",
+                line_start=12,
+                line_end=12,
+                fix_suggestion="Reuse session",
             ),
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": "def process_items(items):\n    result=[]\n    for item in items:\n        if item>0:\n            result.append(item*2)\n    return result\n\ndata = [1, -2, 3, -4, 5]\nprint(process_items(data))",
+        "code": """from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash
+import jwt
+import datetime
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
+app.config['SECRET_KEY'] = 'super-secret-key-123'
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    hashed_pw = generate_password_hash(password)
+    return jsonify({'user': username, 'token': jwt.encode({'user': username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)}, app.config['SECRET_KEY'])}), 201
+
+@app.route('/api/users/<int:user_id>')
+def get_user(user_id):
+    return jsonify({'id': user_id, 'role': 'admin'})""",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Missing space after colon in list literal",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="result=[] -> result = []",
+                description="Hardcoded secret key in production code",
+                line_start=9,
+                line_end=9,
+                fix_suggestion="Use environment variable",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Space missing around comparison operator",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="item>0 -> item > 0",
+                description="No authentication check on protected endpoint",
+                line_start=16,
+                line_end=16,
+                fix_suggestion="Add @login_required",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Function should have docstring",
-                line_start=1,
-                line_end=1,
+                description="No input validation on username/password",
+                line_start=13,
+                line_end=13,
+                fix_suggestion="Add validation",
+            ),
+        ],
+    },
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": """const express = require('express');
+const jwt = require('jsonwebtoken');
+const mysql = require('mysql2');
+const app = express();
+
+const pool = mysql.createPool({
+  host: 'localhost',
+  user: 'root',
+  password: 'password123',
+  database: 'app_db'
+});
+
+app.post('/api/users', (req, res) => {
+  const { username, email, role } = req.body;
+  const token = req.headers.authorization?.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, 'secret-key');
+    pool.query('INSERT INTO users (username, email, role) VALUES (?, ?, ?)', [username, email, role], (err, result) => {
+      if (err) throw err;
+      res.json({ id: result.insertId });
+    });
+  } catch (e) {
+    res.status(401).json({ error: 'Unauthorized' });
+  }
+});
+app.listen(3000);""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Hardcoded database password",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Use env variables",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Hardcoded JWT secret",
+                line_start=14,
+                line_end=14,
+                fix_suggestion="Use env variable",
+            ),
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": """import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    axios.get(`/api/users/${userId}`)
+      .then(res => setUser(res.data))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  return <div><h1>{user.name}</h1><p>{user.email}</p></div>;
+}
+export default UserProfile;""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="No error boundary for component errors",
+                line_start=15,
+                line_end=15,
+                fix_suggestion="Wrap in ErrorBoundary",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="No cleanup in useEffect - potential memory leak",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Add cleanup function",
+            ),
+        ],
+    },
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": """import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+
+interface User { id: string; username: string; role: string; }
+
+declare global { namespace Express { interface Request { user?: User; } } }
+
+export function authenticate(req: Request, res: Response, next: NextFunction) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token provided' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as User;
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Fallback to default secret - security risk",
+                line_start=13,
+                line_end=13,
+                fix_suggestion="Throw error if JWT_SECRET not set",
+            ),
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": """import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+interface Product { id: number; name: string; price: number; }
+
+@Component({ selector: 'app-product-list', template: `<div *ngFor="let p of products"><h3>{{p.name}}</h3><p>{{p.price | currency}}</p></div>` })
+export class ProductListComponent implements OnInit {
+  products: Product[] = [];
+  constructor(private http: HttpClient) {}
+  ngOnInit(): void {
+    this.http.get<Product[]>('/api/products').subscribe({
+      next: (data) => this.products = data,
+      error: (err) => console.error('Error:', err)
+    });
+  }
+}""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="No unsubscribe - memory leak",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Use takeUntilDestroyed",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="No loading indicator",
+                line_start=9,
+                line_end=9,
+                fix_suggestion="Add loading state",
             ),
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": "def add_numbers(a,b,c):\n    total = a + b + c\n    return total\nx=add_numbers(1,2,3)\nprint(x)",
+        "code": """import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+
+def train_model(data_path: str, target_col: str) -> float:
+    df = pd.read_csv(data_path)
+    X = df.drop(columns=[target_col])
+    y = df[target_col]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X_train, y_train)
+    return model.score(X_test, y_test)
+
+accuracy = train_model('data.csv', 'target')
+print(f"Model accuracy: {accuracy}")""",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Function name should use snake_case",
-                line_start=1,
-                line_end=1,
+                description="No data preprocessing for missing values",
+                line_start=9,
+                line_end=9,
+                fix_suggestion="Add imputation",
             ),
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Variable name should use snake_case",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="total -> total_sum",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space around assignment",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="x= -> x = ",
-            ),
-        ],
-    },
-    "py005": {
-        "language": Language.PYTHON,
-        "code": "def do_something(x,y):\n    if x>y:\n        return x-y\n    else:\n        return y-x\n\nresult=do_something(10,5)\nprint(result)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around comparison operator",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around arithmetic operators",
-                line_start=2,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=4,
-                line_end=4,
-            ),
-        ],
-    },
-    "py006": {
-        "language": Language.PYTHON,
-        "code": 'def get_user(name,age):\n    return f"User: {name}, Age: {age}"\n\nuser=get_user("Alice",30)\nprint(user)',
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Function name should use snake_case",
-                line_start=1,
-                line_end=1,
-                fix_suggestion="get_user -> get_user_info",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Parameter names should use snake_case",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=4,
-                line_end=4,
-            ),
-        ],
-    },
-    "py007": {
-        "language": Language.PYTHON,
-        "code": "def filter_list(items):\n    result=[x for x in items if x>10]\n    return result\n\ndata=[5,15,25,8,12]\nfiltered=filter_list(data)\nprint(filtered)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after comma in list",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after comma in list",
-                line_start=4,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py008": {
-        "language": Language.PYTHON,
-        "code": "def calculate_average(numbers):\n    sum_val=sum(numbers)\n    count=len(numbers)\n    avg=sum_val/count\n    return avg\n\nnums=[10,20,30,40,50]\nresult=calculate_average(nums)\nprint(result)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Variable names should use snake_case",
-                line_start=2,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=2,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after comma in list",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py009": {
-        "language": Language.PYTHON,
-        "code": "class UserController:\n    def GetUser(self,userId):\n        return {'id':userId,'name':'John'}\n\nobj=UserController()\nprint(obj.GetUser(1))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Class name should use PascalCase",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Method name should use snake_case",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="GetUser -> get_user",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Parameter should use snake_case",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="userId -> user_id",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py010": {
-        "language": Language.PYTHON,
-        "code": "def process_data(data:list[str])->dict:\n    result={}\n    for i,item in enumerate(data):\n        result[i]=item.upper()\n    return result\n\nprint(process_data(['a','b','c']))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after colon in type hint",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operator",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after comma in function call",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py011": {
-        "language": Language.PYTHON,
-        "code": "import json\n\ndef save_config(config:dict,filename:str):\n    with open(filename,'w') as f:\n        json.dump(config,f)\n\nsave_config({'debug':True},'config.json')",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces after colon in type hints",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after comma in function call",
-                line_start=5,
-                line_end=5,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operator",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "py012": {
-        "language": Language.PYTHON,
-        "code": "def fetch_records(query,limit=100,offset=0):\n    sql=f\"SELECT * FROM table WHERE {query} LIMIT {limit} OFFSET {offset}\"\n    return sql\n\nprint(fetch_records('active=1'))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing default values spacing",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="SQL injection vulnerability should use parameterized query",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "py013": {
-        "language": Language.PYTHON,
-        "code": "def calculate_score(math,eng,science):\n    total=math+eng+science\n    avg=total/3\n    return total,avg\n\nscore=calculate_score(80,90,85)\nprint(score)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Function parameters should use snake_case",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space around division operator",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "py014": {
-        "language": Language.PYTHON,
-        "code": "class DataProcessor:\n    def __init__(self,Data,Threshold):\n        self.Data=Data\n        self.Threshold=Threshold\n    \n    def Process(self):\n        return [x for x in self.Data if x>self.Threshold]\n\nproc=DataProcessor([1,2,3],2)\nprint(proc.Process())",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Class attribute names should use snake_case",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Instance attribute names should use snake_case",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Instance attribute names should use snake_case",
-                line_start=4,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Method name should use snake_case",
-                line_start=6,
-                line_end=6,
-            ),
-        ],
-    },
-    "py015": {
-        "language": Language.PYTHON,
-        "code": "def authenticate(username:str,password:str)->bool:\n    if username=='admin' and password=='admin123':\n        return True\n    return False\n\nprint(authenticate('admin','admin123'))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces in type hints",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around comparison operator",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use len instead of comparing to empty string",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "py016": {
-        "language": Language.PYTHON,
-        "code": "numbers=[1,2,3,4,5,6,7,8,9,10]\nevens=[]\nfor n in numbers:\n    if n%2==0:\n        evens.append(n)\nprint(evens)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use list comprehension instead of loop",
-                line_start=2,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around modulo operator",
-                line_start=4,
-                line_end=4,
-            ),
-        ],
-    },
-    "py017": {
-        "language": Language.PYTHON,
-        "code": "def get_user_info(user_id):\n    name='John'\n    age=30\n    email='john@example.com'\n    return {'id':user_id,'name':name,'age':age,'email':email}\n\nprint(get_user_info(1))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use dataclass or namedtuple instead of dictionary",
-                line_start=5,
-                line_end=5,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use f-string instead of string concatenation",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "py018": {
-        "language": Language.PYTHON,
-        "code": "import os,sys,json\n\ndef read_file(path):\n    with open(path,'r') as f:return f.read()\n\ndata=read_file('data.txt')\nprint(len(data))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Multiple imports should be on separate lines",
-                line_start=1,
-                line_end=1,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing space after colon in with statement",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Body of with statement should be indented",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "py019": {
-        "language": Language.PYTHON,
-        "code": "def validate_email(email):\n    if '@' in email and '.' in email:\n        return True\n    else:return False\n\nresult=validate_email('test@example.com')\nprint(result)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use ternary operator instead of if-else",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around operators",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "py020": {
-        "language": Language.PYTHON,
-        "code": "def process(items):\n    results=[]\n    for item in items:\n        if type(item)==str:\n            results.append(item.upper())\n        elif type(item)==int:\n            results.append(item*2)\n    return results\n\nprint(process(['a',1,'b',2]))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use isinstance instead of type comparison",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Use type() == str instead of ==",
-                line_start=3,
-                line_end=3,
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Missing spaces around assignment",
-                line_start=2,
-                line_end=2,
+                description="No model persistence - trained model lost",
+                line_start=14,
+                line_end=14,
+                fix_suggestion="Use joblib to save model",
             ),
         ],
     },
 }
 
 BUG_SNIPPETS = {
-    "js001": {
-        "language": Language.JAVASCRIPT,
-        "code": "function findElement(arr, index) {\n    return arr[index];\n}\n\nconst data = [1, 2, 3];\nconsole.log(findElement(data, 3));",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Off-by-one error index is out of bounds for array",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="Check bounds or adjust index",
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No bounds checking on index parameter",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "js002": {
-        "language": Language.JAVASCRIPT,
-        "code": "function process(items) {\n    let result = [];\n    for (let i = 0; i <= items.length; i++) {\n        result.push(items[i] * 2);\n    }\n    return result;\n}\n\nconsole.log(process([1, 2, 3]));",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Off-by-one error should use less than not less than or equal",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="i <= items.length -> i < items.length",
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Will access undefined on last iteration causing NaN",
-                line_start=4,
-                line_end=4,
-            ),
-        ],
-    },
     "py001": {
         "language": Language.PYTHON,
-        "code": "def append_to(element, to=[]):\n    to.append(element)\n    return to\n\nprint(append_to(1))\nprint(append_to(2))\nprint(append_to(3))",
+        "code": """def get_user(user_id):
+    users = {1: {'name': 'Alice'}, 2: {'name': 'Bob'}}
+    return users.get(user_id)
+
+user = get_user(5)
+print(user['name'])""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Mutable default argument causes state to persist across calls",
-                line_start=1,
-                line_end=1,
-                fix_suggestion="Use to=None and check inside function",
+                description="Dictionary returns None for missing key - accessing .name on None causes TypeError",
+                line_start=5,
+                line_end=5,
+                fix_suggestion="Add null check",
             ),
         ],
     },
     "py002": {
         "language": Language.PYTHON,
-        "code": 'def check_value(x):\n    if x == True:\n        return "yes"\n    elif x == False:\n        return "no"\n    else:\n        return "unknown"\n\nprint(check_value(1))\nprint(check_value(0))',
+        "code": """import json
+
+def process_json_data(json_string):
+    data = json.loads(json_string)
+    return data['results'][0]['items'][0]['name']
+
+result = process_json_data('{"results": []}')
+print(result)""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Using equality operator with boolean instead of identity operator",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="Use is True or if x pattern",
+                description="Accessing nested keys on empty list causes KeyError",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="Add validation",
+            ),
+        ],
+    },
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": """async function getUserData(userId) {
+  try {
+    const response = await fetch(`/api/users/${userId}`);
+    const data = await response.json();
+    return data.profile.settings.theme;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
+
+const theme = getUserData(123);
+console.log(theme.toUpperCase());""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Calling async function synchronously - returns Promise not value",
+                line_start=11,
+                line_end=11,
+                fix_suggestion="Use await",
             ),
             Issue(
                 issue_type=IssueType.BUG,
-                description="Same issue on line 4",
-                line_start=4,
-                line_end=4,
+                description="No null check on theme - calling .toUpperCase() on null throws",
+                line_start=12,
+                line_end=12,
+                fix_suggestion="Add null check",
+            ),
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": """function updateUserPreferences(userId, preferences) {
+  const user = users.find(u => u.id === userId);
+  user.preferences = preferences;
+  return user;
+}
+
+function deleteUser(userId) {
+  const index = users.findIndex(u => u.id === userId);
+  users.splice(index, 1);
+}
+
+updateUserPreferences(1, { theme: 'dark' });
+deleteUser(1);""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="find returns undefined if user not found - accessing .preferences throws",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="Add null check",
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="findIndex returns -1 when not found - splice(-1, 1) removes last element",
+                line_start=7,
+                line_end=7,
+                fix_suggestion="Check index !== -1",
             ),
         ],
     },
     "ts001": {
         "language": Language.TYPESCRIPT,
-        "code": "function getFirstElement<T>(arr: T[]): T {\n    return arr[0];\n}\n\nconst nums: number[] = [];\nconsole.log(getFirstElement(nums));",
+        "code": """interface User { id: number; name: string; email?: string; }
+
+function processUser(user: User): string {
+  return user.email.toLowerCase();
+}
+
+const user: User = { id: 1, name: 'John' };
+const result = processUser(user);
+console.log(result);""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="No null check returns undefined for empty array",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Empty array passed without validation",
+                description="Optional property email could be undefined - calling .toLowerCase() throws",
                 line_start=5,
                 line_end=5,
-            ),
-        ],
-    },
-    "js003": {
-        "language": Language.JAVASCRIPT,
-        "code": 'const users = [\n    { name: "Alice", age: 25 },\n    { name: "Bob", age: 30 }\n];\n\nfunction findUser(name) {\n    for (let i = 0; i <= users.length; i++) {\n        if (users[i].name === name) {\n            return users[i];\n        }\n    }\n}\n\nconsole.log(findUser("Alice"));',
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Off-by-one in loop condition",
-                line_start=6,
-                line_end=6,
-                fix_suggestion="i <= users.length -> i < users.length",
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Will throw error when i equals users.length",
-                line_start=7,
-                line_end=7,
+                fix_suggestion="Use optional chaining",
             ),
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": 'def multiply(a, b):\n    return a * b\n\nresult = multiply(10, "5")\nprint(result)',
+        "code": """def calculate_discount(prices, discount_percent):
+    discount_amount = 0
+    for price in prices:
+        discount_amount += price * discount_percent / 100
+    return prices[0] - discount_amount
+
+total = calculate_discount([], 10)
+print(total)""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="No type checking multiplying int by string produces unexpected result",
-                line_start=3,
-                line_end=3,
+                description="Empty list - returns prices[0] which raises IndexError",
+                line_start=5,
+                line_end=5,
+                fix_suggestion="Add validation for empty list",
             ),
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": """class EventEmitter {
+  constructor() { this.events = {}; }
+  on(event, callback) {
+    if (!this.events[event]) this.events[event] = [];
+    this.events[event].push(callback);
+  }
+  emit(event, data) {
+    if (this.events[event]) this.events[event].forEach(cb => cb(data));
+  }
+}
+
+const emitter = new EventEmitter();
+emitter.on('data', (d) => console.log(d));
+emitter.emit('data', { value: 42 });""",
+        "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Result is 10 repeated 5 times instead of 50",
-                line_start=3,
-                line_end=3,
+                description="No error handling in callback - one error crashes all handlers",
+                line_start=7,
+                line_end=7,
+                fix_suggestion="Wrap in try-catch",
             ),
         ],
     },
     "ts002": {
         "language": Language.TYPESCRIPT,
-        "code": 'interface Config {\n    host: string;\n    port: number;\n}\n\nfunction connect(config: Config) {\n    return `Connecting to ${config.host}:${config.port}`;\n}\n\nconnect({ host: "localhost" });',
+        "code": """function parseServerResponse(response: any): { data: string[], status: number } {
+  if (typeof response === 'string') return JSON.parse(response);
+  return response;
+}
+
+const result = parseServerResponse(null);
+console.log(result.data);""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Missing required property port",
-                line_start=9,
-                line_end=9,
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No validation for missing required field",
-                line_start=7,
-                line_end=7,
+                description="No null check - accessing .data throws on null",
+                line_start=6,
+                line_end=6,
+                fix_suggestion="Add null check",
             ),
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": "def divide(a, b):\n    return a / b\n\nprint(divide(10, 0))",
+        "code": """import concurrent.futures
+import requests
+
+def fetch_data(url):
+    response = requests.get(url)
+    return response.json()
+
+urls = ['https://api.example.com/data/1', 'https://api.example.com/data/2']
+results = [fetch_data(url) for url in urls]
+print(results)""",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="No division by zero check",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "py005": {
-        "language": Language.PYTHON,
-        "code": "def get_item(lst, idx):\n    return lst[idx]\n\nprint(get_item([1, 2, 3], 10))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No index bounds checking",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "js004": {
-        "language": Language.JAVASCRIPT,
-        "code": "function parseJSON(str) {\n    return JSON.parse(str);\n}\n\nconsole.parseJSON('{\"invalid\"}')",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No try-catch for JSON parse error",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "js005": {
-        "language": Language.JAVASCRIPT,
-        "code": "let x = 1;\nfunction foo() {\n    console.log(x);\n    let x = 2;\n}\nfoo()",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Temporal dead zone - variable used before declaration",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "ts003": {
-        "language": Language.TYPESCRIPT,
-        "code": "function greet(name: string) {\n    return `Hello, ${name.toUpperCase()}`;\n}\n\ngreet(null)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No null check on parameter",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="null value passed to function expecting string",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py006": {
-        "language": Language.PYTHON,
-        "code": "items = [1, 2, 3]\nfor i in range(len(items)):\n    print(items[i + 1])",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Index out of bounds on last iteration",
-                line_start=3,
-                line_end=3,
-            ),
-        ],
-    },
-    "js006": {
-        "language": Language.JAVASCRIPT,
-        "code": "const obj = { a: 1 };\nconsole.log(obj.b.c);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Accessing nested property on undefined",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "py007": {
-        "language": Language.PYTHON,
-        "code": "def update_dict(d, key, value):\n    d[key] = value\n    return d\n\noriginal = {'a': 1}\nupdated = update_dict(original, 'b', 2)\nprint(original)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Mutating input dictionary",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "js007": {
-        "language": Language.JAVASCRIPT,
-        "code": "const arr = [1, 2, 3];\narr.push(4);\narr.push(5);\nconsole.log(arr.length);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Array mutated without tracking length",
-                line_start=2,
-                line_end=3,
-            ),
-        ],
-    },
-    "ts004": {
-        "language": Language.TYPESCRIPT,
-        "code": "interface User {\n    name: string;\n    age?: number;\n}\n\nconst user: User = { name: 'John' };\nconsole.log(user.age.toFixed(2));",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Calling method on possibly undefined property",
-                line_start=7,
-                line_end=7,
-            ),
-        ],
-    },
-    "py008": {
-        "language": Language.PYTHON,
-        "code": "def find_in_list(lst, target):\n    for i in range(len(lst)):\n        if lst[i] == target:\n            return i\n    return -1\n\nprint(find_in_list([1, 2, 3], 5))",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Using -1 as error indicator without checking",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "js008": {
-        "language": Language.JAVASCRIPT,
-        "code": "async function fetchData() {\n    const response = await fetch('/api/data');\n    return response;\n}\n\nconst data = fetchData();\nconsole.log(data.name);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Accessing promise result without await",
-                line_start=6,
-                line_end=6,
+                description="Sequential execution defeats purpose of concurrent.futures",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Use ThreadPoolExecutor",
             ),
         ],
     },
@@ -846,412 +571,372 @@ BUG_SNIPPETS = {
 SECURITY_SNIPPETS = {
     "py001": {
         "language": Language.PYTHON,
-        "code": 'import sqlite3\n\ndef get_user(user_id):\n    conn = sqlite3.connect("app.db")\n    cursor = conn.cursor()\n    query = f"SELECT * FROM users WHERE id = {user_id}"\n    cursor.execute(query)\n    result = cursor.fetchone()\n    conn.close()\n    return result\n\nprint(get_user(1))',
+        "code": """from flask import Flask, request, render_template_string
+import subprocess
+
+app = Flask(__name__)
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '')
+    sql = f"SELECT * FROM products WHERE name LIKE '%{query}%'"
+    return render_template_string(f"<h1>Results for {query}</h1>")
+
+@app.route('/ping')
+def ping():
+    host = request.args.get('host', 'localhost')
+    result = subprocess.run(f'ping -c 1 {host}', shell=True, capture_output=True)
+    return result.stdout""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="SQL injection vulnerability user input directly in query",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use parameterized query with question mark placeholder",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No input sanitization on user_id parameter",
-                line_start=4,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No error handling for database operations",
-                line_start=4,
-                line_end=8,
-            ),
-        ],
-    },
-    "py002": {
-        "language": Language.PYTHON,
-        "code": 'import os\n\nAPI_KEY = "sk-1234567890abcdef"\n\ndef get_api_key():\n    return API_KEY\n\ndef call_api():\n    key = get_api_key()\n    print(f"Using API key: {key}")',
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Hardcoded API key in source code",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="Use environment variable or secrets manager",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="API key exposed in function output",
+                description="SQL injection vulnerability",
                 line_start=8,
                 line_end=8,
+                fix_suggestion="Use parameterized queries",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Command injection - shell=True with user input",
+                line_start=14,
+                line_end=14,
+                fix_suggestion="Use list args, not shell=True",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Template injection - user input in render_template_string",
+                line_start=9,
+                line_end=9,
+                fix_suggestion="Use Jinja2 templates",
             ),
         ],
     },
     "js001": {
         "language": Language.JAVASCRIPT,
-        "code": "function evaluateExpression(expr) {\n    return eval(expr);\n}\n\nconst userInput = \"alert('xss')\";\nevaluateExpression(userInput);",
+        "code": """const express = require('express');
+const crypto = require('crypto');
+const session = require('express-session');
+
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  const hash = crypto.createHash('md5').update(password).digest('hex');
+  const user = users.find(u => u.username === username && u.password === hash);
+  if (user) { req.session.userId = user.id; res.redirect('/dashboard'); }
+  else { res.redirect('/login?error=Invalid credentials'); }
+});""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Using eval with user input allows code injection",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="Avoid eval, use safe parser if needed",
+                description="Using MD5 for password hashing - cryptographically broken",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Use bcrypt",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No sanitization of userInput",
+                description="No session secret configured",
                 line_start=5,
                 line_end=5,
+                fix_suggestion="Configure secure secret",
             ),
         ],
     },
-    "py003": {
+    "py002": {
         "language": Language.PYTHON,
-        "code": 'import pickle\n\ndef load_data(filename):\n    with open(filename, "rb") as f:\n        return pickle.load(f)\n\ndata = load_data("user_data.pkl")\nprint(data)',
+        "code": """import pickle
+import os
+
+class User:
+    def __init__(self, username, role):
+        self.username = username
+        self.role = role
+
+def load_user_data(filename):
+    with open(filename, 'rb') as f:
+        return pickle.load(f)
+
+user = load_user_data(os.path.expanduser('~/uploads/user.pkl'))
+if user.role == 'admin':
+    os.system('rm -rf /tmp/*')""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Using pickle load with untrusted data allows arbitrary code execution",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use JSON or safe deserialization",
+                description="Pickle deserialization of untrusted data - arbitrary code execution",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Use JSON or msgpack",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No validation of file source",
-                line_start=3,
-                line_end=3,
+                description="Path traversal - user controls filename",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Validate path",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No authorization check before admin action",
+                line_start=13,
+                line_end=13,
+                fix_suggestion="Verify permissions",
             ),
         ],
     },
     "js002": {
         "language": Language.JAVASCRIPT,
-        "code": "const crypto = require('crypto');\n\nfunction generateToken() {\n    return Math.random().toString(36).substring(2);\n}\n\nconsole.log(generateToken());",
+        "code": """const fs = require('fs');
+const path = require('path');
+
+app.get('/download', (req, res) => {
+  const filename = req.query.file;
+  const filepath = path.join(__dirname, 'uploads', filename);
+  fs.readFile(filepath, (err, data) => {
+    if (err) { res.status(404).send('File not found'); return; }
+    res.send(data);
+  });
+});
+
+app.post('/upload', (req, res) => {
+  fs.writeFile(`/tmp/${req.body.filename}`, req.body.content, (err) => {
+    res.send('Uploaded');
+  });
+});""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Using Math.random for security token predictable",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use crypto randomBytes",
+                description="Path traversal - .. in filename allows access outside uploads",
+                line_start=6,
+                line_end=6,
+                fix_suggestion="Validate path stays within directory",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Predictable random values can be guessed leading to vulnerabilities",
-                line_start=4,
-                line_end=4,
+                description="Arbitrary file write - filename from user input",
+                line_start=14,
+                line_end=14,
+                fix_suggestion="Generate random filename",
             ),
         ],
     },
     "ts001": {
         "language": Language.TYPESCRIPT,
-        "code": 'function fetchUserData(userId: string) {\n    const url = `https://api.example.com/users/${userId}`;\n    return fetch(url).then(r => r.json());\n}\n\nfetchUserData("1 OR 1=1");',
+        "code": """import { exec } from 'child_process';
+import { Request, Response } from 'express';
+
+function runCommand(req: Request, res: Response) {
+  const cmd = req.body.command;
+  exec(cmd, (error, stdout, stderr) => {
+    res.json({ output: stdout, error: stderr });
+  });
+}
+
+function queryDatabase(req: Request, res: Response) {
+  const query = req.body.query;
+  const conn = mysql.createConnection({
+    host: 'localhost', user: 'root',
+    password: process.env.DB_PASS || 'admin'
+  });
+  conn.query(query, (err, results) => { res.json(results); });
+}""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No input validation or sanitization potential injection",
-                line_start=4,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Direct string interpolation in URL without validation",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Example injection attack shown in line 5",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "py004": {
-        "language": Language.PYTHON,
-        "code": 'import subprocess\nimport sys\n\ndef run_command(cmd):\n    return subprocess.call(cmd, shell=True)\n\nrun_command("ls -la " + sys.argv[1])',
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Shell injection vulnerability user input in shell True",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use list args, not shell True",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No validation of command arguments",
-                line_start=4,
-                line_end=4,
-            ),
-        ],
-    },
-    "js003": {
-        "language": Language.JAVASCRIPT,
-        "code": 'function htmlEscape(str) {\n    return str.replace(/</g, "&lt;").replace(/>/g, "&gt;");\n}\n\nconst userComment = "<script>alert(\'xss\')</script>";\ndocument.innerHTML = htmlEscape(userComment);',
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Incomplete HTML escaping missing quotes and other chars",
-                line_start=2,
-                line_end=2,
-                fix_suggestion="Use a proper library like DOMPurify",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Directly setting innerHTML even with escaping is risky",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "js004": {
-        "language": Language.JAVASCRIPT,
-        "code": "const crypto = require('crypto');\n\nfunction generateId() {\n    return Math.random().toString(36).substr(2, 16);\n}\n\nconsole.log(generateId());",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Using Math.random for IDs is predictable",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use crypto.randomBytes",
-            ),
-        ],
-    },
-    "js005": {
-        "language": Language.JAVASCRIPT,
-        "code": "const fs = require('fs');\nconst path = require('path');\n\nfunction readUserFile(filename) {\n    const content = fs.readFileSync('/var/www/uploads/' + filename, 'utf8');\n    return content;\n}\n\nreadUserFile('../../../etc/passwd')",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Path traversal vulnerability",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Validate and sanitize file path",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Allowing arbitrary file read",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "js006": {
-        "language": Language.JAVASCRIPT,
-        "code": "const http = require('http');\n\nconst options = {\n    hostname: 'example.com',\n    port: 80,\n    path: '/api?token=' + process.env.API_KEY,\n};\n\nhttp.get(options, (res) => { console.log(res); });",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Exposing API key in URL query parameter",
+                description="Command injection - direct user input in exec",
                 line_start=7,
                 line_end=7,
-                fix_suggestion="Use headers for authentication",
+                fix_suggestion="Never pass user input to exec",
             ),
-        ],
-    },
-    "js007": {
-        "language": Language.JAVASCRIPT,
-        "code": "const express = require('express');\nconst app = express();\n\napp.get('/user/:id', (req, res) => {\n    const query = `SELECT * FROM users WHERE id = ${req.params.id}`;\n    db.query(query, (err, result) => { res.json(result); });\n});",
-        "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="SQL injection via route parameter",
-                line_start=5,
-                line_end=5,
+                description="SQL injection - user query passed directly",
+                line_start=14,
+                line_end=14,
                 fix_suggestion="Use parameterized queries",
             ),
-        ],
-    },
-    "ts002": {
-        "language": Language.TYPESCRIPT,
-        "code": 'function fetchUserData(userId: string) {\n    const url = `https://api.example.com/users/${userId}`;\n    return fetch(url).then(r => r.json());\n}\n\nfetchUserData("1 OR 1=1");',
-        "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No input validation or sanitization potential injection",
-                line_start=4,
-                line_end=4,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Direct string interpolation in URL without validation",
-                line_start=2,
-                line_end=2,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Example injection attack shown in line 5",
-                line_start=5,
-                line_end=5,
-            ),
-        ],
-    },
-    "ts003": {
-        "language": Language.TYPESCRIPT,
-        "code": "import { exec } from 'child_process';\n\nfunction runCommand(cmd: string) {\n    exec(cmd, (error, stdout, stderr) => {\n        console.log(stdout);\n    });\n}\n\nrunCommand('ls -la ' + process.argv[2]);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Command injection via user input",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use execFile with arguments array",
-            ),
-        ],
-    },
-    "ts004": {
-        "language": Language.TYPESCRIPT,
-        "code": "function loadConfig() {\n    const config = require('./config.json');\n    return config;\n}\n\nconst settings = loadConfig();\neval(settings.code);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Loading untrusted code with eval",
-                line_start=6,
-                line_end=6,
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Using require with unsanitized path",
-                line_start=2,
-                line_end=2,
-            ),
-        ],
-    },
-    "ts005": {
-        "language": Language.TYPESCRIPT,
-        "code": "const jwt = require('jsonwebtoken');\n\nfunction verifyToken(token: string) {\n    return jwt.verify(token, 'secret-key');\n}\n\nconst decoded = verifyToken(token);",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Hardcoded secret key for JWT",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use environment variable for secret",
+                description="Hardcoded database credentials",
+                line_start=12,
+                line_end=12,
+                fix_suggestion="Use environment variables",
             ),
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": 'import pickle\n\ndef load_data(filename):\n    with open(filename, "rb") as f:\n        return pickle.load(f)\n\ndata = load_data("user_data.pkl")\nprint(data)',
+        "code": """import jwt
+import base64
+import json
+
+def create_token(user_id, role='user'):
+    header = {'alg': 'none', 'typ': 'JWT'}
+    payload = {'user_id': user_id, 'role': role}
+    encoded = base64.b64encode(json.dumps(header).encode()).decode() + '.' + \
+              base64.b64encode(json.dumps(payload).encode()).decode() + '.'
+    return encoded
+
+def verify_token(token):
+    try:
+        parts = token.split('.')
+        if len(parts) != 3: return None
+        payload = json.loads(base64.b64decode(parts[1]))
+        return payload
+    except: return None
+
+token = create_token(123, 'admin')
+print(verify_token(token))""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Using pickle load with untrusted data allows arbitrary code execution",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use JSON or safe deserialization",
+                description="JWT 'none' algorithm - no signature verification",
+                line_start=5,
+                line_end=5,
+                fix_suggestion="Use RS256 or HS256",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No validation of file source",
-                line_start=3,
-                line_end=3,
+                description="No signature verification - tokens can be forged",
+                line_start=14,
+                line_end=14,
+                fix_suggestion="Verify signature properly",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No expiration claim - tokens never expire",
+                line_start=6,
+                line_end=6,
+                fix_suggestion="Add 'exp' claim",
+            ),
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": """const axios = require('axios');
+
+async function fetchUserData(userId) {
+  return (await axios.get(`https://api.example.com/users/${userId}`, {
+    headers: { 'Authorization': `Bearer ${process.env.API_TOKEN}` }
+  })).data;
+}
+
+async function handleRequest(req, res) {
+  const data = await fetchUserData(req.params.id);
+  res.cookie('user_data', JSON.stringify(data), { httpOnly: false, secure: false });
+  res.json(data);
+}""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Cookie not httpOnly - vulnerable to XSS",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Set httpOnly: true",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Cookie sent over HTTP - should require secure flag",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Set secure: true",
+            ),
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": """import * as crypto from 'crypto';
+
+function generateApiKey(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function verifySignature(data: string, sig: string, pubKey: string): boolean {
+  return crypto.createVerify('SHA256').update(data).end().verify(pubKey, sig, 'base64');
+}""",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="API key with insufficient entropy",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="Use 32 bytes or crypto.randomUUID",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SHA256 unsuitable for password hashing",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Use bcrypt or argon2",
             ),
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": 'import subprocess\nimport sys\n\ndef run_command(cmd):\n    return subprocess.call(cmd, shell=True)\n\nrun_command("ls -la " + sys.argv[1])',
+        "code": """import yaml
+
+def load_config(filename):
+    with open(filename, 'r') as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
+
+def execute_script(filename):
+    config = load_config(filename)
+    if config.get('run'): exec(config['run'])
+
+config = load_config('config.yaml')
+print(f"App: {config.get('app_name')}")""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Shell injection vulnerability user input in shell True",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use list args, not shell True",
+                description="YAML deserialization vulnerability - arbitrary code execution",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="Use yaml.safe_load",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="No validation of command arguments",
-                line_start=4,
-                line_end=4,
+                description="Code injection - exec with untrusted input",
+                line_start=8,
+                line_end=8,
+                fix_suggestion="Never use exec with user data",
             ),
         ],
     },
     "py005": {
         "language": Language.PYTHON,
-        "code": "import yaml\n\ndef load_config(filename):\n    with open(filename) as f:\n        return yaml.load(f, Loader=yaml.FullLoader)\n\nconfig = load_config('config.yaml')\nexec(config['code'])",
+        "code": """import xml.etree.ElementTree as ET
+
+def parse_xml_file(filename):
+    return ET.parse(filename).getroot()
+
+def process_user_xml(xml_string):
+    root = ET.fromstring(xml_string)
+    for user in root.findall('.//user'):
+        username = user.get('username')
+        password = user.findtext('password')
+        print(f"User: {username}, Password: {password}")
+
+xml = '''<users><user username="admin"><password>secret</password></user></users>'''
+process_user_xml(xml)""",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Arbitrary code execution via yaml load",
-                line_start=7,
-                line_end=7,
+                description="XXE vulnerability - XML with external entity could read files",
+                line_start=6,
+                line_end=6,
+                fix_suggestion="Disable external entities",
             ),
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Using yaml FullLoader is unsafe",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use yaml.safe_load",
-            ),
-        ],
-    },
-    "py006": {
-        "language": Language.PYTHON,
-        "code": "import hashlib\nimport secrets\n\ndef generate_token():\n    return hashlib.md5(secrets.token_bytes(16)).hexdigest()\n\nprint(generate_token())",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Using MD5 for security tokens is insecure",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use hashlib.sha256 or secrets.token_urlsafe",
-            ),
-        ],
-    },
-    "py007": {
-        "language": Language.PYTHON,
-        "code": "import base64\n\ndef decode_secret(encoded):\n    return base64.b64decode(encoded).decode('utf-8')\n\nsecret = decode_secret('c2VjcmV0LWtleQ==')\nprint(secret)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Base64 encoding is not encryption",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="Use proper encryption like cryptography library",
-            ),
-        ],
-    },
-    "py008": {
-        "language": Language.PYTHON,
-        "code": "from werkzeug.security import generate_password_hash\n\npassword = \"password123\"\nhash = generate_password_hash(password, method='pbkdf2:sha256')\nprint(hash)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Using weak hashing method",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="Use bcrypt or argon2",
-            ),
-        ],
-    },
-    "py009": {
-        "language": Language.PYTHON,
-        "code": "import os\nimport glob\n\ndef list_files(directory):\n    return glob.glob(directory + '/*')\n\nfiles = list_files('/tmp/' + os.getenv('USER_INPUT'))\nprint(files)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Path traversal via environment variable",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Validate and sanitize path input",
-            ),
-        ],
-    },
-    "py010": {
-        "language": Language.PYTHON,
-        "code": "import tempfile\nimport os\n\ndef create_temp_file(content):\n    fd, path = tempfile.mkstemp()\n    os.write(fd, content)\n    os.close(fd)\n    return path\n\npath = create_temp_file(b'secret data')\nos.chmod(path, 0o777)\nprint(path)",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Temporary file with world-readable permissions",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Use restrictive file permissions",
+                description="Sensitive data printed in plain text",
+                line_start=10,
+                line_end=10,
+                fix_suggestion="Never log passwords",
             ),
         ],
     },
@@ -1283,22 +968,17 @@ class MyEnvironment(Environment):
         self, seed=None, episode_id=None, task_name: str = "style_check", **kwargs
     ) -> CodeReviewObservation:
         self._task_name = TaskName(task_name)
-
         snippets = CODE_SNIPPETS.get(self._task_name, STYLE_SNIPPETS)
-
         snippet_ids = sorted(snippets.keys())
         if seed is not None:
             random.seed(seed)
             idx = random.randint(0, len(snippet_ids) - 1)
         else:
             idx = 0
-
         snippet_id = snippet_ids[idx]
         snippet = snippets[snippet_id]
-
         self._found_issues = []
         self._initial_issue_count = len(snippet["issues"])
-
         self._state = CodeReviewState(
             episode_id=episode_id or str(uuid.uuid4()),
             step_count=0,
@@ -1309,7 +989,6 @@ class MyEnvironment(Environment):
             language=snippet["language"],
             code_snippet=snippet["code"],
         )
-
         return CodeReviewObservation(
             done=False,
             reward=None,
@@ -1326,25 +1005,19 @@ class MyEnvironment(Environment):
         self, action: CodeReviewAction, timeout_s=None, **kwargs
     ) -> CodeReviewObservation:
         self._state.step_count += 1
-
         if action.description.lower() == "done":
             return self._build_observation(
                 done=True, reward=0.0, message="Agent finished early"
             )
-
         for fi in self._found_issues:
             if (
                 fi.line_number == action.line_number
                 and fi.issue_type == action.issue_type
             ):
                 return self._build_observation(
-                    done=False,
-                    reward=0.0,
-                    message="Duplicate issue already reported",
+                    done=False, reward=0.0, message="Duplicate issue already reported"
                 )
-
         match = self._match_issue(action)
-
         found_issue = FoundIssue(
             issue_type=action.issue_type,
             description=action.description,
@@ -1352,12 +1025,9 @@ class MyEnvironment(Environment):
             fix_suggestion=action.fix_suggestion,
             is_correct=match["matched"],
         )
-
         self._found_issues.append(found_issue)
-
         if match["matched"]:
             reward = self._calculate_reward(action, match)
-
             self._state.ground_truth_issues = [
                 gt
                 for gt in self._state.ground_truth_issues
@@ -1368,33 +1038,26 @@ class MyEnvironment(Environment):
             ]
         else:
             reward = 0.0
-
         self._state.current_score = min(1.0, self._state.current_score + reward)
-
         issues_remaining = len(self._state.ground_truth_issues)
-
         done = (
             issues_remaining == 0
             or self._state.step_count >= self.MAX_STEPS[self._task_name]
         )
-
         return self._build_observation(done, reward, match["message"])
 
     def _match_issue(self, action: CodeReviewAction) -> dict:
         for gt in self._state.ground_truth_issues:
             if gt.issue_type != action.issue_type:
                 continue
-
             if not (gt.line_start <= action.line_number <= gt.line_end):
                 continue
-
             if self._description_matches(gt.description, action.description):
                 return {
                     "matched": True,
                     "issue": gt,
                     "message": f"Correct: {gt.description}",
                 }
-
         return {
             "matched": False,
             "issue": None,
@@ -1409,21 +1072,16 @@ class MyEnvironment(Environment):
     def _calculate_reward(self, action: CodeReviewAction, match: dict) -> float:
         issue_weight = 1.0 / self._initial_issue_count
         matched_issue = match["issue"]
-
         if self._task_name != TaskName.FULL_REVIEW:
             return issue_weight
-
         if matched_issue.fix_suggestion is None:
             return issue_weight
-
         if action.fix_suggestion is None:
             return issue_weight * 0.5
-
         if self._description_matches(
             matched_issue.fix_suggestion, action.fix_suggestion
         ):
             return issue_weight
-
         return issue_weight * 0.5
 
     def _build_observation(

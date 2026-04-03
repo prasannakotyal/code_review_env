@@ -275,25 +275,6 @@ def get_planned_actions(
     task_name: TaskName,
     code_snippet: str,
 ) -> list[CodeReviewAction]:
-    snippets = CODE_SNIPPETS[task_name]
-
-    for snippet in snippets.values():
-        if snippet["code"] != code_snippet:
-            continue
-
-        actions: list[CodeReviewAction] = []
-        for issue in snippet["issues"]:
-            actions.append(
-                CodeReviewAction(
-                    issue_type=issue.issue_type,
-                    description=issue.description,
-                    line_number=issue.line_start,
-                    fix_suggestion=issue.fix_suggestion,
-                )
-            )
-
-        return actions
-
     return []
 
 
