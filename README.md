@@ -353,18 +353,6 @@ my_env/
 
 ---
 
-## Why This Stands Out
-
-| Typical Environment | Our Code Review Environment |
-|---------------------|----------------------------|
-| Game (catch, chess, maze) | Real software engineering task |
-| Abstract reward | Measurable business value |
-| Toy problem | Industry-scale problem |
-| No practical use | Companies can use this today |
-| Agent learns game rules | Agent learns engineering skills |
-
----
-
 ## License
 
 MIT License — See [`LICENSE`](LICENSE)
@@ -374,6 +362,3 @@ MIT License — See [`LICENSE`](LICENSE)
 ## About
 
 Built for the Meta x PyTorch OpenEnv Hackathon organized by Scaler School of Technology in collaboration with Meta, Hugging Face, and PyTorch.
-
-**Developer:** prasannakotyal  
-**GitHub:** https://github.com/prasannakotyal/code_review_env
