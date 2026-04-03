@@ -1,39 +1,52 @@
-name: Deploy to HuggingFace Space
+name: CI/CD
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Install dependencies
-        run: |
-          pip install uv
-          uv sync
-          
+        run: uv sync --all-extras
+
       - name: Run tests
-        run: |
-          uv run pytest -v
-          
+        run: uv run pytest -v
+
+      - name: Validate OpenEnv spec
+        run: uv run openenv validate
+
       - name: Build Docker image
-        run: |
-          docker build -t code-review-env:latest .
-          
+        run: docker build -t code-review-env:latest .
+
+  sync-to-hf:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Push to HF Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          echo "$HF_TOKEN" | docker login huggingface.co -u ${{ secrets.HF_USERNAME }} --password-stdin
-          docker tag code-review-env:latest hf.co/spaces/${{ secrets.HF_SPACE_REPO }}:latest
-          docker push hf.co/spaces/${{ secrets.HF_SPACE_REPO }}:latest
+          git remote add hf-space https://Prasannakotyal:${HF_TOKEN}@huggingface.co/spaces/Prasannakotyal/code-review-env || true
+          git push hf-space main --force
