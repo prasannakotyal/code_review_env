@@ -94,6 +94,7 @@ def load_env_files() -> None:
 
 
 def read_cached_hf_token() -> Optional[str]:
+    """Read token from HF cache as last resort fallback."""
     for token_path in [
         Path.home() / ".cache" / "huggingface" / "token",
         Path.home() / ".cache" / "hugging_face" / "token",
@@ -102,7 +103,6 @@ def read_cached_hf_token() -> Optional[str]:
             token = token_path.read_text().strip()
             if token:
                 return token
-
     return None
 
 
@@ -113,9 +113,19 @@ def load_config() -> InferenceConfig:
         os.getenv("HF_TOKEN")
         or os.getenv("API_KEY")
         or os.getenv("OPENAI_API_KEY")
-        or read_cached_hf_token()
         or ""
     )
+
+    if not api_key:
+        cached = read_cached_hf_token()
+        if cached:
+            api_key = cached
+        else:
+            print(
+                "WARNING: No API key found. Set HF_TOKEN, API_KEY, or OPENAI_API_KEY environment variable."
+            )
+            print("You can get a token from: https://huggingface.co/settings/tokens")
+            api_key = ""
 
     task_name = TaskName(os.getenv("MY_ENV_TASK", TaskName.STYLE_CHECK.value))
     max_steps = int(os.getenv("MAX_STEPS", MAX_STEPS_BY_TASK[task_name]))
