@@ -2874,46 +2874,227 @@ class MyEnvironment(Environment):
             "message": "No matching issue found. Check line number and issue type.",
         }
 
-    def _normalize_for_match(self, text: str) -> str:
-        text = text.lower()
-        text = re.sub(r"[^a-z0-9]", "", text)
-        text = re.sub(r"(spaces|space)", "space", text)
-        text = re.sub(r"(variables|variable)", "variable", text)
-        text = re.sub(r"(functions|function)", "function", text)
-        text = re.sub(r"(names|name)", "name", text)
-        for suffix in ["ing", "ed", "es", "s"]:
-            text = re.sub(rf"{suffix}$", "", text)
-        return text
+    # Keyword groups that indicate the same concept
+    KEYWORD_ALIASES = {
+        # Style concepts
+        "fstring": [
+            "f-string",
+            "fstring",
+            "f string",
+            "format string",
+            "string interpolation",
+            "concatenation",
+            "template literal",
+            "string formatting",
+        ],
+        "listcomp": [
+            "list comprehension",
+            "listcomp",
+            "comprehension",
+            "append loop",
+            "for loop append",
+            "filter(",
+            "map(",
+        ],
+        "snakecase": [
+            "snake_case",
+            "snakecase",
+            "snake case",
+            "naming convention",
+            "camelcase",
+            "camel_case",
+            "PascalCase",
+            "naming style",
+        ],
+        "docstring": [
+            "docstring",
+            "doc string",
+            "documentation",
+            "missing docs",
+            "undocumented",
+            "jsdoc",
+            "comment",
+        ],
+        "typehinit": [
+            "type hint",
+            "type annotation",
+            "typing",
+            "return type",
+            "parameter type",
+            "List[",
+            "type safety",
+            ": any",
+            "explicit type",
+        ],
+        "verbosename": [
+            "verbose_name",
+            "verbose name",
+            "help_text",
+            "helptext",
+            "field metadata",
+            "model field",
+        ],
+        "bareexcept": [
+            "bare except",
+            "except:",
+            "exception type",
+            "specific exception",
+            "catches everything",
+            "catch all",
+            "generic exception",
+        ],
+        "enumerate": ["enumerate", "range(len", "index loop", "for i in range"],
+        "items": ["items()", ".items", "keys()", ".keys", "dict iteration"],
+        "unused": ["unused", "not used", "never used", "dead code", "unreachable"],
+        "arrow": [
+            "arrow function",
+            "arrow =>",
+            "=> ",
+            "lambda",
+            "anonymous function",
+            "function expression",
+        ],
+        "const": [
+            "const",
+            "let",
+            "var",
+            "immutable",
+            "reassign",
+            "constant",
+        ],
+        "equality": [
+            "===",
+            "==",
+            "strict equality",
+            "type coercion",
+            "loose equality",
+        ],
+        "semicolon": [
+            "semicolon",
+            "semi-colon",
+            "missing ;",
+            "statement terminator",
+        ],
+        # Bug concepts
+        "nullcheck": [
+            "null",
+            "none",
+            "undefined",
+            "nil",
+            "nullable",
+            "optional chaining",
+            "null check",
+        ],
+        "offbyone": ["off by one", "off-by-one", "index error", "boundary", "bounds"],
+        "division": ["division", "divide", "zero", "zerodivision", "divisor"],
+        "async": ["async", "await", "promise", "asynchronous", "callback"],
+        "initialization": [
+            "uninitial",
+            "not initial",
+            "undefined variable",
+            "used before",
+            "declaration",
+        ],
+        # Security concepts
+        "sqli": [
+            "sql injection",
+            "sqli",
+            "sql query",
+            "parameterized",
+            "prepared statement",
+            "user input",
+        ],
+        "xss": [
+            "xss",
+            "cross-site",
+            "script injection",
+            "innerhtml",
+            "dangerouslysetinnerhtml",
+            "unsanitized",
+        ],
+        "hardcoded": [
+            "hardcoded",
+            "hard-coded",
+            "hardcode",
+            "secret",
+            "password",
+            "api key",
+            "credential",
+        ],
+        "eval": ["eval", "exec", "code execution", "arbitrary code", "dynamic code"],
+        "path": [
+            "path traversal",
+            "directory traversal",
+            "../",
+            "file path",
+            "user-controlled path",
+        ],
+        "csrf": ["csrf", "cross-site request", "token", "forgery"],
+    }
 
-    def _fuzzy_match(self, text1: str, text2: str) -> bool:
-        norm1 = self._normalize_for_match(text1)
-        norm2 = self._normalize_for_match(text2)
-        if norm1 in norm2 or norm2 in norm1:
-            return True
-        words1 = set(norm1.split())
-        words2 = set(norm2.split())
-        common = words1 & words2
-        if len(common) >= 2:
-            return True
-        if len(common) == 1:
-            key_word = common.pop()
-            if key_word in ["snakecase", "verbose", "helptext", "operator", "model"]:
-                return True
-        return False
+    def _extract_keywords(self, text: str) -> set:
+        """Extract normalized keywords from text."""
+        text_lower = text.lower()
+        found = set()
+        # Check for keyword aliases
+        for concept, aliases in self.KEYWORD_ALIASES.items():
+            for alias in aliases:
+                if alias in text_lower:
+                    found.add(concept)
+                    break
+        # Also add individual words
+        words = set(re.findall(r"\b[a-z_][a-z0-9_]*\b", text_lower))
+        found.update(words)
+        return found
 
     def _description_matches(self, gt: str, rep: str) -> bool:
-        if gt.lower() in rep.lower() or rep.lower() in gt.lower():
+        gt_lower = gt.lower()
+        rep_lower = rep.lower()
+
+        # Direct substring match
+        if gt_lower in rep_lower or rep_lower in gt_lower:
             return True
-        gt_words = set(re.findall(r"\b\w+\b", gt.lower()))
-        rep_words = set(re.findall(r"\b\w+\b", rep.lower()))
-        common = gt_words & rep_words
-        if len(common) >= 2:
+
+        # Extract keywords from both
+        gt_keywords = self._extract_keywords(gt)
+        rep_keywords = self._extract_keywords(rep)
+
+        # Check for concept matches (high-value keywords)
+        concept_keys = set(self.KEYWORD_ALIASES.keys())
+        gt_concepts = gt_keywords & concept_keys
+        rep_concepts = rep_keywords & concept_keys
+
+        # If they share a concept, it's a match
+        if gt_concepts & rep_concepts:
             return True
-        if len(common) == 1:
-            key_word = common.pop()
-            if key_word in ["snakecase", "verbose", "helptext", "operator", "model"]:
-                return True
-        return self._fuzzy_match(gt.lower(), rep.lower())
+
+        # Word overlap - need at least 1 significant word in common
+        common_words = gt_keywords & rep_keywords
+        # Filter out very common words
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "to",
+            "for",
+            "of",
+            "in",
+            "on",
+            "and",
+            "or",
+            "use",
+            "should",
+            "be",
+            "with",
+        }
+        significant_common = common_words - stopwords
+
+        if len(significant_common) >= 1:
+            return True
+
+        return False
 
     def _calculate_reward(self, action: CodeReviewAction, match: dict) -> float:
         issue_weight = 1.0 / self._initial_issue_count
