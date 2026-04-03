@@ -23,13 +23,13 @@ from typing import Optional
 
 from openai import OpenAI
 
-from client import MyEnv
-from models import CodeReviewAction, IssueType, TaskName
-from server.my_env_environment import CODE_SNIPPETS
+from my_env import MyEnv
+from my_env import CodeReviewAction, IssueType, TaskName
+from my_env.server.my_env_environment import CODE_SNIPPETS
 
 
 DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
-DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
 DEFAULT_ENV_BASE_URL = "https://prasannakotyal-code-review-env.hf.space"
 
 MAX_STEPS_BY_TASK = {
@@ -38,15 +38,43 @@ MAX_STEPS_BY_TASK = {
     TaskName.FULL_REVIEW: 10,
 }
 
-SYSTEM_PROMPT = """You are an expert code reviewer.
+SYSTEM_PROMPT = """You are an expert code reviewer specialized in detecting code issues.
 
-Return exactly one JSON object with these fields:
-- issue_type: "style", "bug", or "security"
-- description: the issue you found
-- line_number: the line number for the issue
-- fix_suggestion: optional, but include it when the task is full_review and you know the fix
+## YOUR TASK
+Analyze the given code snippet and identify ONE issue at a time.
 
-If no more confident issues remain, return:
+## ISSUE TYPES
+- STYLE: Code style violations (naming conventions, formatting, PEP 8, linting)
+- BUG: Logic errors, runtime errors, undefined variables, incorrect usage
+- SECURITY: SQL injection, XSS, hardcoded secrets, unsafe functions
+
+## OUTPUT FORMAT
+Return ONLY a JSON object with these exact fields:
+{
+  "issue_type": "style" or "bug" or "security",
+  "description": "Specific issue found (be concise and exact)",
+  "line_number": integer,
+  "fix_suggestion": "How to fix (optional for style/bug, required for security)"
+}
+
+## CRITICAL INSTRUCTIONS
+1. Read the code carefully - identify what ACTUALLY is wrong
+2. Match the issue to the CORRECT line number
+3. Use PRECISE descriptions that match common issue patterns
+4. For Django models: check for missing verbose_name, help_text, ordering
+5. For security: look for hardcoded secrets, SQL queries, user input
+
+## COMMON PATTERNS TO CHECK
+- Function/variable names not in snake_case
+- Missing docstrings
+- Unused imports
+- Missing null=True on nullable fields
+- Hardcoded passwords/keys
+- SQL injection vulnerable queries
+- Missing CSRF protection
+- Use of eval() or exec()
+
+If you find NO more issues, return:
 {"issue_type":"style","description":"done","line_number":0}
 """
 
@@ -178,12 +206,28 @@ def build_user_prompt(
     step: int,
     max_steps: int,
 ) -> str:
+    task_hints = {
+        TaskName.STYLE_CHECK: "Focus on code style: naming conventions (snake_case), formatting, PEP 8 violations, missing docstrings.",
+        TaskName.BUG_HUNT: "Focus on bugs: logic errors, undefined variables, incorrect function usage, missing error handling.",
+        TaskName.FULL_REVIEW: "Focus on all issues: style, bugs, AND security vulnerabilities. Include fix_suggestion.",
+    }
+
+    found_issues = ""
+    if issues_found:
+        found_issues = "\nAlready found issues:\n"
+        for issue in issues_found:
+            found_issues += f"- Line {issue.line_number}: {issue.description}\n"
+
     return (
         f"Task: {task_name.value}\n"
+        f"{task_hints.get(task_name, '')}\n"
         f"Step: {step}/{max_steps}\n"
         f"Issues found so far: {len(issues_found)}\n"
-        f"Issues remaining: {issues_remaining}\n\n"
-        f"Code:\n```text\n{code_snippet}\n```"
+        f"Issues remaining: {issues_remaining}\n"
+        f"{found_issues}\n"
+        f"Code to review:\n"
+        f"{code_snippet}\n\n"
+        f"Respond with ONE JSON object identifying the next issue."
     )
 
 

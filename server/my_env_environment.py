@@ -35,909 +35,2719 @@ except ImportError:
 
 
 STYLE_SNIPPETS = {
+    # PYTHON STYLE - 25 snippets
     "py001": {
         "language": Language.PYTHON,
-        "code": """from django.shortcuts import render
-from django.http import JsonResponse
-from django.contrib.auth.models import User
-import json
-
-def get_user_profile(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-        return JsonResponse({
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name
-        })
-    except User.DoesNotExist:
-        return JsonResponse({'error': 'User not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)""",
+        "code": "from django.db import models\nclass User(models.Model):\n    name = models.CharField(max_length=100)\n    email = models.EmailField()\n    created = models.DateTimeField(auto_now_add=True)\n    def __str__(self): return self.name",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Missing Django REST Framework - should use DRF views for proper REST API",
-                line_start=1,
-                line_end=1,
-                fix_suggestion="Use rest_framework.views.APIView",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Catching bare Exception is anti-pattern",
-                line_start=12,
-                line_end=12,
-                fix_suggestion="Catch specific exceptions",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No authentication/permission classes defined",
-                line_start=3,
-                line_end=3,
-                fix_suggestion="Add @permission_classes",
-            ),
+                description="Model should have verbose_name and help_text for fields",
+                line_start=2,
+                line_end=2,
+            )
         ],
     },
     "py002": {
         "language": Language.PYTHON,
-        "code": """import asyncio
-import aiohttp
-from typing import Dict, List, Optional
-
-class APIClient:
-    def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.session: Optional[aiohttp.ClientSession] = None
-
-    async def fetch_data(self, endpoint: str, params: Dict = None) -> Dict:
-        url = f"{self.base_url}/{endpoint}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with aiohttp.ClientSession() as session:
-            response = await session.get(url, headers=headers, params=params)
-            return await response.json()
-
-    async def fetch_multiple(self, endpoints: List[str]) -> List[Dict]:
-        tasks = [self.fetch_data(ep) for ep in endpoints]
-        return await asyncio.gather(*tasks)
-
-client = APIClient("https://api.example.com", "secret-key-12345")
-results = asyncio.run(client.fetch_multiple(["users", "posts"]))""",
+        "code": "import pytest\ndef test_login():\n    assert login('admin', 'password') == True\ndef test_logout():\n    assert logout() == False",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Hardcoded API key - security risk",
-                line_start=21,
-                line_end=21,
-                fix_suggestion="Use environment variable",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Creating new session for each request - inefficient",
-                line_start=12,
-                line_end=12,
-                fix_suggestion="Reuse session",
-            ),
+                description="No setup/teardown for test isolation",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": """from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash
-import jwt
-import datetime
-
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
-app.config['SECRET_KEY'] = 'super-secret-key-123'
-
-@app.route('/api/register', methods=['POST'])
-def register():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    hashed_pw = generate_password_hash(password)
-    return jsonify({'user': username, 'token': jwt.encode({'user': username, 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)}, app.config['SECRET_KEY'])}), 201
-
-@app.route('/api/users/<int:user_id>')
-def get_user(user_id):
-    return jsonify({'id': user_id, 'role': 'admin'})""",
+        "code": "data = {'name': 'John', 'age': 30, 'city': 'NYC'}\nfor key in data.keys():\n    print(key, data[key])",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="Hardcoded secret key in production code",
-                line_start=9,
-                line_end=9,
-                fix_suggestion="Use environment variable",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No authentication check on protected endpoint",
-                line_start=16,
-                line_end=16,
-                fix_suggestion="Add @login_required",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No input validation on username/password",
-                line_start=13,
-                line_end=13,
-                fix_suggestion="Add validation",
-            ),
-        ],
-    },
-    "js001": {
-        "language": Language.JAVASCRIPT,
-        "code": """const express = require('express');
-const jwt = require('jsonwebtoken');
-const mysql = require('mysql2');
-const app = express();
-
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: 'password123',
-  database: 'app_db'
-});
-
-app.post('/api/users', (req, res) => {
-  const { username, email, role } = req.body;
-  const token = req.headers.authorization?.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, 'secret-key');
-    pool.query('INSERT INTO users (username, email, role) VALUES (?, ?, ?)', [username, email, role], (err, result) => {
-      if (err) throw err;
-      res.json({ id: result.insertId });
-    });
-  } catch (e) {
-    res.status(401).json({ error: 'Unauthorized' });
-  }
-});
-app.listen(3000);""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Hardcoded database password",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Use env variables",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Hardcoded JWT secret",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Use env variable",
-            ),
-        ],
-    },
-    "js002": {
-        "language": Language.JAVASCRIPT,
-        "code": """import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-function UserProfile({ userId }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    axios.get(`/api/users/${userId}`)
-      .then(res => setUser(res.data))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [userId]);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  return <div><h1>{user.name}</h1><p>{user.email}</p></div>;
-}
-export default UserProfile;""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No error boundary for component errors",
-                line_start=15,
-                line_end=15,
-                fix_suggestion="Wrap in ErrorBoundary",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No cleanup in useEffect - potential memory leak",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Add cleanup function",
-            ),
-        ],
-    },
-    "ts001": {
-        "language": Language.TYPESCRIPT,
-        "code": """import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-interface User { id: string; username: string; role: string; }
-
-declare global { namespace Express { interface Request { user?: User; } } }
-
-export function authenticate(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No token provided' });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default-secret') as User;
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="Fallback to default secret - security risk",
-                line_start=13,
-                line_end=13,
-                fix_suggestion="Throw error if JWT_SECRET not set",
-            ),
-        ],
-    },
-    "ts002": {
-        "language": Language.TYPESCRIPT,
-        "code": """import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-
-interface Product { id: number; name: string; price: number; }
-
-@Component({ selector: 'app-product-list', template: `<div *ngFor="let p of products"><h3>{{p.name}}</h3><p>{{p.price | currency}}</p></div>` })
-export class ProductListComponent implements OnInit {
-  products: Product[] = [];
-  constructor(private http: HttpClient) {}
-  ngOnInit(): void {
-    this.http.get<Product[]>('/api/products').subscribe({
-      next: (data) => this.products = data,
-      error: (err) => console.error('Error:', err)
-    });
-  }
-}""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No unsubscribe - memory leak",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Use takeUntilDestroyed",
-            ),
-            Issue(
-                issue_type=IssueType.STYLE,
-                description="No loading indicator",
-                line_start=9,
-                line_end=9,
-                fix_suggestion="Add loading state",
-            ),
+                description="Use data.items() instead of keys() + indexing",
+                line_start=3,
+                line_end=3,
+            )
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": """import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-
-def train_model(data_path: str, target_col: str) -> float:
-    df = pd.read_csv(data_path)
-    X = df.drop(columns=[target_col])
-    y = df[target_col]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-    return model.score(X_test, y_test)
-
-accuracy = train_model('data.csv', 'target')
-print(f"Model accuracy: {accuracy}")""",
+        "code": "result = []\nfor i in range(10):\n    if i % 2 == 0:\n        result.append(i)\nprint(result)",
         "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="No data preprocessing for missing values",
-                line_start=9,
-                line_end=9,
-                fix_suggestion="Add imputation",
-            ),
+                description="Use list comprehension: [i for i in range(10) if i % 2 == 0]",
+                line_start=2,
+                line_end=4,
+            )
+        ],
+    },
+    "py005": {
+        "language": Language.PYTHON,
+        "code": "try:\n    data = json.loads(text)\nexcept:\n    print('error')",
+        "issues": [
             Issue(
                 issue_type=IssueType.STYLE,
-                description="No model persistence - trained model lost",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Use joblib to save model",
-            ),
+                description="Bare except catches everything - specify exception type",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py006": {
+        "language": Language.PYTHON,
+        "code": "from typing import List\ndef get_items() -> List:\n    return ['a', 'b', 'c']",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use List[str] instead of plain List for type safety",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py007": {
+        "language": Language.PYTHON,
+        "code": "if x > 0 and y > 0 and z > 0:\n    print('positive')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use all() for readability: if all([x>0, y>0, z>0])",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py008": {
+        "language": Language.PYTHON,
+        "code": "print('Hello ' + name + '!')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use f-string instead of concatenation",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py009": {
+        "language": Language.PYTHON,
+        "code": "if flag == True:\n    do_something()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use 'if flag:' instead of 'if flag == True:'",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py010": {
+        "language": Language.PYTHON,
+        "code": "items = [1,2,3,4,5]\nfiltered = []\nfor item in items:\n    if item > 2:\n        filtered.append(item)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use list comprehension instead of append loop",
+                line_start=2,
+                line_end=4,
+            )
+        ],
+    },
+    "py011": {
+        "language": Language.PYTHON,
+        "code": "text = 'hello world'\nwords = text.split(' ')\ncount = len(words)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use text.split() without argument for whitespace",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py012": {
+        "language": Language.PYTHON,
+        "code": "for i in range(len(items)):\n    print(items[i])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use enumerate(items) instead of range(len())",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py013": {
+        "language": Language.PYTHON,
+        "code": "def foo(x, y=10, z):\n    return x + y + z",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Non-default parameter follows default parameter",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py014": {
+        "language": Language.PYTHON,
+        "code": "import time\ntime.sleep(1)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Unused import time - remove or use it",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py015": {
+        "language": Language.PYTHON,
+        "code": "output = ''\nfor item in items:\n    output += str(item) + ','",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use join instead of string concatenation in loop",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py016": {
+        "language": Language.PYTHON,
+        "code": "if condition:\n    return True\nelse:\n    return False",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Simplify to 'return condition'",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "py017": {
+        "language": Language.PYTHON,
+        "code": "class Foo:\n    def bar(self):\n        pass",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Add docstring to class",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py018": {
+        "language": Language.PYTHON,
+        "code": "if x < 5:\n    print('small')\nelif x < 10:\n    print('medium')\nelif x < 15:\n    print('large')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use match/case for multiple conditions",
+                line_start=1,
+                line_end=5,
+            )
+        ],
+    },
+    "py019": {
+        "language": Language.PYTHON,
+        "code": "temp = a\na = b\nb = temp",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use tuple unpacking: a, b = b, a",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "py020": {
+        "language": Language.PYTHON,
+        "code": "from module import *",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Avoid wildcard imports - specify what you need",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py021": {
+        "language": Language.PYTHON,
+        "code": "config = {'debug': True, 'port': 8080}\nif config['debug'] == True:\n    print('Debug mode')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use config.get() with default for missing keys",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py022": {
+        "language": Language.PYTHON,
+        "code": "def process(items):\n    result = {}\n    for item in items:\n        result[item.id] = item\n    return result",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use dict comprehension: {item.id: item for item in items}",
+                line_start=2,
+                line_end=4,
+            )
+        ],
+    },
+    "py023": {
+        "language": Language.PYTHON,
+        "code": "x = 1\nwhile x < 100:\n    x += 1",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use range(1, 100) instead of while loop",
+                line_start=1,
+                line_end=2,
+            )
+        ],
+    },
+    "py024": {
+        "language": Language.PYTHON,
+        "code": "data = [(1, 'a'), (2, 'b'), (3, 'c')]\nids = []\nfor item in data:\n    ids.append(item[0])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use list comprehension: [item[0] for item in data]",
+                line_start=2,
+                line_end=4,
+            )
+        ],
+    },
+    "py025": {
+        "language": Language.PYTHON,
+        "code": "def greet(name):\n    return 'Hello ' + name.title() + '!'",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Add type hints: def greet(name: str) -> str:",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    # JAVASCRIPT STYLE - 25 snippets
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": "const users = ['alice', 'bob', 'charlie'];\nusers.forEach(function(user) {\n    console.log(user);\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use arrow function: users.forEach(user => console.log(user))",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": "function getData() {\n    var data = fetch('/api/data');\n    return data;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use const/let instead of var",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": "if (user !== null && user !== undefined) {\n    console.log(user.name);\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use optional chaining: user?.name",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js004": {
+        "language": Language.JAVASCRIPT,
+        "code": "const result = arr.filter(x => x > 5).map(x => x * 2).reduce((a, b) => a + b, 0);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Chain is too long - break into separate variables",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js005": {
+        "language": Language.JAVASCRIPT,
+        "code": "const handler = function(event) {\n    event.preventDefault();\n    console.log(event.target);\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use arrow function with named function for readability",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js006": {
+        "language": Language.JAVASCRIPT,
+        "code": "const ids = users.map(function(user) {\n    return user.id;\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use concise arrow: users.map(u => u.id)",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js007": {
+        "language": Language.JAVASCRIPT,
+        "code": "if (items.length > 0) {\n    return items[0];\n} else {\n    return null;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use nullish coalescing: items[0] ?? null",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js008": {
+        "language": Language.JAVASCRIPT,
+        "code": "async function fetchData() {\n    const response = await fetch(url);\n    const data = response.json();\n    return data;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Add error handling with try-catch",
+                line_start=1,
+                line_end=4,
+            )
+        ],
+    },
+    "js009": {
+        "language": Language.JAVASCRIPT,
+        "code": "const config = {\n    apiKey: 'abc123',\n    debug: true,\n    timeout: 5000\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Move to environment variables",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js010": {
+        "language": Language.JAVASCRIPT,
+        "code": "users.forEach((user, index) => {\n    console.log(index + ': ' + user.name);\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use template literals: `${index}: ${user.name}`",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js011": {
+        "language": Language.JAVASCRIPT,
+        "code": "function handleClick(e) {\n    e.preventDefault();\n    e.stopPropagation();\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Extract to named function for reusability",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js012": {
+        "language": Language.JAVASCRIPT,
+        "code": "const keys = Object.keys(obj);\nfor (let i = 0; i < keys.length; i++) {\n    console.log(obj[keys[i]]);\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use Object.values or Object.entries",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js013": {
+        "language": Language.JAVASCRIPT,
+        "code": "const data = JSON.stringify(user, null, 2);\nconsole.log(data);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use JSON.stringify with replacer for circular refs",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js014": {
+        "language": Language.JAVASCRIPT,
+        "code": "if (status === 200 || status === 201 || status === 204) {\n    return true;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use array.includes: [200, 201, 204].includes(status)",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js015": {
+        "language": Language.JAVASCRIPT,
+        "code": "function createUser(name, email, age) {\n    return { name: name, email: email, age: age };\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use shorthand: { name, email, age }",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js016": {
+        "language": Language.JAVASCRIPT,
+        "code": "const filtered = items.filter(x => x !== null).filter(x => x !== undefined);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Combine filters: items.filter(x => x != null)",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js017": {
+        "language": Language.JAVASCRIPT,
+        "code": "document.querySelector('#submit').addEventListener('click', () => {\n    form.submit();\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Check element exists before adding listener",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js018": {
+        "language": Language.JAVASCRIPT,
+        "code": "const timeout = setTimeout(() => {\n    console.log('done');\n}, 1000);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Store timeout ID for potential cleanup",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js019": {
+        "language": Language.JAVASCRIPT,
+        "code": "const date = new Date(2024, 0, 1);\nconsole.log(date.getMonth() + '/' + date.getDate());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use Intl.DateTimeFormat for proper formatting",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js020": {
+        "language": Language.JAVASCRIPT,
+        "code": "const regex = new RegExp(pattern, 'g');\nconst matches = str.match(regex);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use literal regex: /pattern/g when possible",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js021": {
+        "language": Language.JAVASCRIPT,
+        "code": "class UserService {\n    constructor() {\n        this.baseUrl = 'http://localhost:3000';\n    }\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Move baseUrl to constructor parameter",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js022": {
+        "language": Language.JAVASCRIPT,
+        "code": "const result = value !== null && value !== undefined ? value : defaultValue;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use nullish coalescing: value ?? defaultValue",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js023": {
+        "language": Language.JAVASCRIPT,
+        "code": "const items = [1, 2, 3, 4, 5];\nconst total = 0;\nfor (const item of items) {\n    total += item;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use reduce: items.reduce((a, b) => a + b, 0)",
+                line_start=2,
+                line_end=4,
+            )
+        ],
+    },
+    "js024": {
+        "language": Language.JAVASCRIPT,
+        "code": "const params = new URLSearchParams();\nparams.set('page', '1');\nparams.set('limit', '10');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use object: new URLSearchParams({ page: '1', limit: '10' })",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "js025": {
+        "language": Language.JAVASCRIPT,
+        "code": "async function loadData() {\n    const cached = localStorage.getItem('data');\n    if (cached) return JSON.parse(cached);\n    const response = await fetch('/api/data');\n    const data = await response.json();\n    localStorage.setItem('data', JSON.stringify(data));\n    return data;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Add expiration logic to cache",
+                line_start=1,
+                line_end=7,
+            )
+        ],
+    },
+    # TYPESCRIPT STYLE - 25 snippets
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface User {\n    id: number;\n    name: string;\n}\nfunction getUser(id: number): User {\n    return { id, name: 'John' };\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Add return type to interface method",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": "const handleSubmit = (data: any) => {\n    console.log(data);\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Avoid any type - define proper type",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts003": {
+        "language": Language.TYPESCRIPT,
+        "code": "type Status = 'pending' | 'active' | 'completed';\nconst status: Status = 'pending';\nconst status2: Status = 'unknown';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="TypeScript should error on 'unknown' - this is test case",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "ts004": {
+        "language": Language.TYPESCRIPT,
+        "code": "class Handler {\n    private data: string;\n    constructor() { this.data = ''; }\n    getData(): string { return this.data; }\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Initialize in constructor parameter",
+                line_start=1,
+                line_end=4,
+            )
+        ],
+    },
+    "ts005": {
+        "language": Language.TYPESCRIPT,
+        "code": "const parse = (input: string): any => {\n    return JSON.parse(input);\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Return specific type instead of any",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts006": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Config {\n    url: string;\n    timeout?: number;\n}\nconst config: Config = { url: '/api', timeout: undefined };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Omit optional properties when undefined",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "ts007": {
+        "language": Language.TYPESCRIPT,
+        "code": "type Callback = (error: Error, data: string) => void;\nfunction invoke(cb: Callback) {\n    cb(null, 'success');\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use Promise-based callbacks or async/await",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "ts008": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Response<T> {\n    data: T;\n    status: number;\n}\nconst response: Response = { data: {}, status: 200 };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Generic type not provided - use Response<T>",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "ts009": {
+        "language": Language.TYPESCRIPT,
+        "code": "function process(items: Array<any>) {\n    return items.map(x => x);\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use Array<T> instead of Array<any>",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts010": {
+        "language": Language.TYPESCRIPT,
+        "code": "class Service {\n    private endpoint: string = 'http://api.com';\n    private apiKey: string = 'secret123';\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Move sensitive data to environment",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts011": {
+        "language": Language.TYPESCRIPT,
+        "code": "const keys: ReadonlyArray<string> = Object.keys(obj) as string[];",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use type predicate or proper casting",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts012": {
+        "language": Language.TYPESCRIPT,
+        "code": "const value = data as string as number;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Double casting indicates type design issue",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts013": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Options {\n    [key: string]: any;\n}\nconst opts: Options = { debug: true };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use Record<string, T> instead of index signature",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts014": {
+        "language": Language.TYPESCRIPT,
+        "code": "const handler = (event: Event) => {\n    const target = event.target as HTMLInputElement;\n    console.log(target.value);\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Check target is HTMLInputElement",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts015": {
+        "language": Language.TYPESCRIPT,
+        "code": "type JsonObject = { [key: string]: JsonValue };\ntype JsonValue = string | number | JsonObject;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use built-in unknown for JSON types",
+                line_start=1,
+                line_end=2,
+            )
+        ],
+    },
+    "ts016": {
+        "language": Language.TYPESCRIPT,
+        "code": "const fetchData = async (url: string): Promise<Response> => {\n    const response = await fetch(url);\n    return response;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Check response.ok before returning",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "ts017": {
+        "language": Language.TYPESCRIPT,
+        "code": "type UserRole = 'admin' | 'user' | 'guest';\nconst role: UserRole = 'superadmin';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Invalid role - TypeScript should catch this",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts018": {
+        "language": Language.TYPESCRIPT,
+        "code": "class Manager {\n    private employees: Employee[];\n    addEmployee(emp: Employee) {\n        this.employees.push(emp);\n    }\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Initialize employees in constructor",
+                line_start=1,
+                line_end=4,
+            )
+        ],
+    },
+    "ts019": {
+        "language": Language.TYPESCRIPT,
+        "code": "const config = {\n    env: process.env.NODE_ENV || 'development'\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Type process.env properly",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts020": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Handler {\n    (event: Event): void;\n    priority: number;\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use type alias for callable interface",
+                line_start=1,
+                line_end=3,
+            )
+        ],
+    },
+    "ts021": {
+        "language": Language.TYPESCRIPT,
+        "code": "const clone = (obj: object): object => {\n    return { ...obj };\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use proper generic: <T extends object>(obj: T): T",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts022": {
+        "language": Language.TYPESCRIPT,
+        "code": "type Result<T> = { success: true; data: T } | { success: false; error: string };\nfunction handle(result: Result<string>) {\n    if (result.success) {\n        console.log(result.data.toUpperCase());\n    }\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use type narrowing properly",
+                line_start=3,
+                line_end=4,
+            )
+        ],
+    },
+    "ts023": {
+        "language": Language.TYPESCRIPT,
+        "code": "const validate = (value: string | null): boolean => {\n    return value !== null && value.length > 0;\n};",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use non-null assertion or proper null check",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts024": {
+        "language": Language.TYPESCRIPT,
+        "code": "enum Status {\n    Pending = 0,\n    Active = 1,\n}\nconst status: number = Status.Pending;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Use const enum or union type",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "ts025": {
+        "language": Language.TYPESCRIPT,
+        "code": "function transform<T>(input: T): T {\n    return JSON.parse(JSON.stringify(input));\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Deep clone is unnecessary for many cases",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
 }
 
 BUG_SNIPPETS = {
+    # PYTHON BUG - 25 snippets
     "py001": {
         "language": Language.PYTHON,
-        "code": """def get_user(user_id):
-    users = {1: {'name': 'Alice'}, 2: {'name': 'Bob'}}
-    return users.get(user_id)
-
-user = get_user(5)
-print(user['name'])""",
+        "code": "def get_first(items):\n    return items[0]\nprint(get_first([]))",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Dictionary returns None for missing key - accessing .name on None causes TypeError",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Add null check",
-            ),
+                description="IndexError on empty list",
+                line_start=2,
+                line_end=2,
+            )
         ],
     },
     "py002": {
         "language": Language.PYTHON,
-        "code": """import json
-
-def process_json_data(json_string):
-    data = json.loads(json_string)
-    return data['results'][0]['items'][0]['name']
-
-result = process_json_data('{"results": []}')
-print(result)""",
+        "code": "data = {'a': 1, 'b': 2}\nvalue = data['c']",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Accessing nested keys on empty list causes KeyError",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Add validation",
-            ),
-        ],
-    },
-    "js001": {
-        "language": Language.JAVASCRIPT,
-        "code": """async function getUserData(userId) {
-  try {
-    const response = await fetch(`/api/users/${userId}`);
-    const data = await response.json();
-    return data.profile.settings.theme;
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
-}
-
-const theme = getUserData(123);
-console.log(theme.toUpperCase());""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Calling async function synchronously - returns Promise not value",
-                line_start=11,
-                line_end=11,
-                fix_suggestion="Use await",
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No null check on theme - calling .toUpperCase() on null throws",
-                line_start=12,
-                line_end=12,
-                fix_suggestion="Add null check",
-            ),
-        ],
-    },
-    "js002": {
-        "language": Language.JAVASCRIPT,
-        "code": """function updateUserPreferences(userId, preferences) {
-  const user = users.find(u => u.id === userId);
-  user.preferences = preferences;
-  return user;
-}
-
-function deleteUser(userId) {
-  const index = users.findIndex(u => u.id === userId);
-  users.splice(index, 1);
-}
-
-updateUserPreferences(1, { theme: 'dark' });
-deleteUser(1);""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="find returns undefined if user not found - accessing .preferences throws",
+                description="KeyError when key doesn't exist",
                 line_start=2,
                 line_end=2,
-                fix_suggestion="Add null check",
-            ),
-            Issue(
-                issue_type=IssueType.BUG,
-                description="findIndex returns -1 when not found - splice(-1, 1) removes last element",
-                line_start=7,
-                line_end=7,
-                fix_suggestion="Check index !== -1",
-            ),
-        ],
-    },
-    "ts001": {
-        "language": Language.TYPESCRIPT,
-        "code": """interface User { id: number; name: string; email?: string; }
-
-function processUser(user: User): string {
-  return user.email.toLowerCase();
-}
-
-const user: User = { id: 1, name: 'John' };
-const result = processUser(user);
-console.log(result);""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="Optional property email could be undefined - calling .toLowerCase() throws",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use optional chaining",
-            ),
+            )
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": """def calculate_discount(prices, discount_percent):
-    discount_amount = 0
-    for price in prices:
-        discount_amount += price * discount_percent / 100
-    return prices[0] - discount_amount
-
-total = calculate_discount([], 10)
-print(total)""",
+        "code": "result = []\nfor i in range(10):\n    if i % 2:\n        result.append(i)\nprint(sum(result))",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Empty list - returns prices[0] which raises IndexError",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Add validation for empty list",
-            ),
-        ],
-    },
-    "js003": {
-        "language": Language.JAVASCRIPT,
-        "code": """class EventEmitter {
-  constructor() { this.events = {}; }
-  on(event, callback) {
-    if (!this.events[event]) this.events[event] = [];
-    this.events[event].push(callback);
-  }
-  emit(event, data) {
-    if (this.events[event]) this.events[event].forEach(cb => cb(data));
-  }
-}
-
-const emitter = new EventEmitter();
-emitter.on('data', (d) => console.log(d));
-emitter.emit('data', { value: 42 });""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No error handling in callback - one error crashes all handlers",
-                line_start=7,
-                line_end=7,
-                fix_suggestion="Wrap in try-catch",
-            ),
-        ],
-    },
-    "ts002": {
-        "language": Language.TYPESCRIPT,
-        "code": """function parseServerResponse(response: any): { data: string[], status: number } {
-  if (typeof response === 'string') return JSON.parse(response);
-  return response;
-}
-
-const result = parseServerResponse(null);
-console.log(result.data);""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.BUG,
-                description="No null check - accessing .data throws on null",
-                line_start=6,
-                line_end=6,
-                fix_suggestion="Add null check",
-            ),
+                description="Logic error - i%2 is truthy for odd, not even numbers",
+                line_start=3,
+                line_end=3,
+            )
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": """import concurrent.futures
-import requests
-
-def fetch_data(url):
-    response = requests.get(url)
-    return response.json()
-
-urls = ['https://api.example.com/data/1', 'https://api.example.com/data/2']
-results = [fetch_data(url) for url in urls]
-print(results)""",
+        "code": "def divide(a, b):\n    return a / b\nprint(divide(10, 0))",
         "issues": [
             Issue(
                 issue_type=IssueType.BUG,
-                description="Sequential execution defeats purpose of concurrent.futures",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Use ThreadPoolExecutor",
-            ),
+                description="ZeroDivisionError",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py005": {
+        "language": Language.PYTHON,
+        "code": "text = 'hello'\nprint(text[10])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="String index out of range",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py006": {
+        "language": Language.PYTHON,
+        "code": "items = [1, 2, 3]\nfor item in items:\n    if item == 2:\n        items.remove(item)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="RuntimeError during iteration - use list comprehension",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py007": {
+        "language": Language.PYTHON,
+        "code": "data = {'name': 'John', 'age': '30'}\nage = int(data['age'])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Works here but fails if string contains non-numeric",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py008": {
+        "language": Language.PYTHON,
+        "code": "def func(x, items=[]):\n    items.append(x)\n    return items\nprint(func(1))\nprint(func(2))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Mutable default argument persists between calls",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py009": {
+        "language": Language.PYTHON,
+        "code": "value = 'True'\nif value:\n    print('yes')\nelse:\n    print('no')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="String 'True' is truthy but not boolean True",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py010": {
+        "language": Language.PYTHON,
+        "code": "import json\ndata = json.loads('{\"key\": \"value\"}')\nprint(data['key2'])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="KeyError on missing key",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py011": {
+        "language": Language.PYTHON,
+        "code": "class Counter:\n    def __init__(self):\n        self.count = 0\n    def increment(self):\n        self.count += 1\nc1 = Counter()\nc2 = Counter\nc2.increment()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="c2 is class, not instance - missing parentheses",
+                line_start=7,
+                line_end=7,
+            )
+        ],
+    },
+    "py012": {
+        "language": Language.PYTHON,
+        "code": "result = 0\nfor i in range(5):\n    result = result + i\nprint(result)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Sum includes 0-4 but should be 1-5 or use range(1,6)",
+                line_start=2,
+                line_end=3,
+            )
+        ],
+    },
+    "py013": {
+        "language": Language.PYTHON,
+        "code": "text = 'hello world'\nwords = text.split()\nfor i in range(len(words)):\n    words[i] = words[i].capitalize()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Modifying list while iterating - unexpected results",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py014": {
+        "language": Language.PYTHON,
+        "code": "import math\nvalue = math.sqrt(-1)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="ValueError: math domain error for negative",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py015": {
+        "language": Language.PYTHON,
+        "code": "data = [1, 'two', 3]\nresult = sum(data)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: cannot sum int and str",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py016": {
+        "language": Language.PYTHON,
+        "code": "items = [1,2,3]\nitem = items.pop()\nprint(item)\nitems.pop()\nitems.pop()\nprint(items[0])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="IndexError after popping more than length",
+                line_start=6,
+                line_end=6,
+            )
+        ],
+    },
+    "py017": {
+        "language": Language.PYTHON,
+        "code": "text = 'hello'\nfor i in range(len(text)):\n    print(text[i+1])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="IndexError on last iteration",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py018": {
+        "language": Language.PYTHON,
+        "code": "result = None\nif result is not None:\n    print(result.name)\nprint(result.name)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="AttributeError on None",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "py019": {
+        "language": Language.PYTHON,
+        "code": "data = [{'id': 1}, {'id': 2}]\nfor item in data:\n    if item['id'] == 1:\n        del item",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="RuntimeError during iteration",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py020": {
+        "language": Language.PYTHON,
+        "code": "class Person:\n    def __init__(self, name):\n        self.name = name\np = Person()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: missing required argument",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "py021": {
+        "language": Language.PYTHON,
+        "code": "numbers = [1, 2, 3, 4, 5]\navg = sum(numbers) / len(numbers[:-1])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Off-by-one: divides by 4 not 5",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py022": {
+        "language": Language.PYTHON,
+        "code": "import re\npattern = r'(\\d+)'\ntext = 'abc123def'\nmatch = re.search(pattern, text)\nprint(match.group(0))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Works but match.group(1) would return just number",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "py023": {
+        "language": Language.PYTHON,
+        "code": "data = {'a': 1, 'b': 2}\nif 'c' in data:\n    print(data['c'])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Dead code - condition always false",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py024": {
+        "language": Language.PYTHON,
+        "code": "x = 5\ny = 10\nx, y = y, x\nprint(x, y)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Works correctly - but edge case if swapping same variable",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py025": {
+        "language": Language.PYTHON,
+        "code": "def get_nested(data, key1, key2):\n    return data[key1][key2]\nprint(get_nested({'a': {}}, 'a', 'b'))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="KeyError on nested access",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    # JAVASCRIPT BUG - 25 snippets
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": "const items = [1, 2, 3];\nconsole.log(items[5]);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="undefined for out of bounds index",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": "const obj = { a: 1 };\nconsole.log(obj.b.c);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: Cannot read property 'c' of undefined",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": "const nums = [1, 2, 3];\nfor (let i = 0; i <= nums.length; i++) {\n    console.log(nums[i]);\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Off-by-one: logs undefined on last iteration",
+                line_start=2,
+                line_end=3,
+            )
+        ],
+    },
+    "js004": {
+        "language": Language.JAVASCRIPT,
+        "code": "async function getData() {\n    return fetch('/api').then(r => r.json());\n}\nconst data = getData();\nconsole.log(data.results);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="getData returns Promise, not data object",
+                line_start=5,
+                line_end=5,
+            )
+        ],
+    },
+    "js005": {
+        "language": Language.JAVASCRIPT,
+        "code": "const users = [{name: 'Alice'}, {name: 'Bob'}];\nconst user = users.find(u => u.name === 'Charlie');\nconsole.log(user.name);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: Cannot read name of undefined",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js006": {
+        "language": Language.JAVASCRIPT,
+        "code": "const arr = [1, 2, 3];\narr.push(4);\narr = [5, 6];",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: const cannot be reassigned",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js007": {
+        "language": Language.JAVASCRIPT,
+        "code": "const result = '5' + 3;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="String concatenation: result is '53' not 8",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js008": {
+        "language": Language.JAVASCRIPT,
+        "code": "const value = null;\nconsole.log(value.property);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeError: Cannot read property of null",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js009": {
+        "language": Language.JAVASCRIPT,
+        "code": "const items = [1, 2, 3];\nitems.forEach(i => {\n    if (i === 2) return;\n    console.log(i);\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="return in forEach doesn't break - continues to next",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js010": {
+        "language": Language.JAVASCRIPT,
+        "code": "function foo() { console.log(this); }\nfoo();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="this is undefined in strict mode, window otherwise",
+                line_start=1,
+                line_end=2,
+            )
+        ],
+    },
+    "js011": {
+        "language": Language.JAVASCRIPT,
+        "code": "const nums = [1, 2, 3];\nconst doubled = nums.map(i => { i * 2; });",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="map returns [undefined, undefined, undefined] - missing return",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js012": {
+        "language": Language.JAVASCRIPT,
+        "code": "const obj = {};\nobj[undefined] = 'value';\nconsole.log(obj[null]);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="undefined and null are different keys",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js013": {
+        "language": Language.JAVASCRIPT,
+        "code": "const date = new Date('invalid');\nconsole.log(date.getTime());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Invalid Date returns NaN",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js014": {
+        "language": Language.JAVASCRIPT,
+        "code": "const str = 'hello';\nstr[0] = 'H';\nconsole.log(str);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Strings are immutable - assignment is ignored",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js015": {
+        "language": Language.JAVASCRIPT,
+        "code": "const x = 0.1 + 0.2;\nconsole.log(x === 0.3);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Floating point precision: false, x is 0.30000000000000004",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js016": {
+        "language": Language.JAVASCRIPT,
+        "code": "const users = ['a', 'b'];\nconsole.log(users[users.length]);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Index out of bounds - returns undefined",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js017": {
+        "language": Language.JAVASCRIPT,
+        "code": "function test(a, b) {\n    return a + b;\n}\nconsole.log(test(1));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="b is undefined, returns NaN",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js018": {
+        "language": Language.JAVASCRIPT,
+        "code": "const data = {name: 'John'};\ndelete data.name;\nconsole.log(data.name);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="property is deleted, returns undefined",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js019": {
+        "language": Language.JAVASCRIPT,
+        "code": "const obj = {a: 1};\nconst keys = Object.keys(obj);\nkeys.forEach(k => console.log(obj[k.toUpperCase()]));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Key 'A' doesn't exist - undefined",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js020": {
+        "language": Language.JAVASCRIPT,
+        "code": "const num = '10';\nif (num == 10) console.log('equal');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Loose equality works but type coercion is confusing",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js021": {
+        "language": Language.JAVASCRIPT,
+        "code": "const arr = [1, 2, 3];\narr.splice(1, 1, 4, 5);\nconsole.log(arr);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Result is [1, 4, 5, 3] - unexpected for some",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js022": {
+        "language": Language.JAVASCRIPT,
+        "code": "const fn = () => ({ value: 1 });\nconsole.log(fn().value);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Arrow function returns object correctly, but tricky syntax",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js023": {
+        "language": Language.JAVASCRIPT,
+        "code": "const items = [{}, {}];\nitems[0] = items[1];\nitems[0].value = 100;\nconsole.log(items[1].value);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Both reference same object - 100, not 0",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "js024": {
+        "language": Language.JAVASCRIPT,
+        "code": "const str = '5';\nconsole.log(+str + 5);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Unary + converts to 10, but confusing",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js025": {
+        "language": Language.JAVASCRIPT,
+        "code": "const fn = function() { return 1; };\nfn.key = 'value';\nconsole.log(fn.key);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Function can have properties - but unusual",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    # TYPESCRIPT BUG - 25 snippets
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": "function getFirst(arr: string[]): string {\n    return arr[0];\n}\nconsole.log(getFirst([]));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Returns undefined for empty array",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": "const user: { name: string } = { name: 'John', age: 30 };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="TypeScript error: object literal has extra property",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts003": {
+        "language": Language.TYPESCRIPT,
+        "code": "const nums: number[] = [1, 2, 'three'];",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: string not assignable to number",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts004": {
+        "language": Language.TYPESCRIPT,
+        "code": "const data: string = null;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: null not assignable to string",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts005": {
+        "language": Language.TYPESCRIPT,
+        "code": "const obj: Record<string, number> = { a: 1 };\nconsole.log(obj.b);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Property 'b' does not exist on type",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts006": {
+        "language": Language.TYPESCRIPT,
+        "code": "const fn = (a: number, b: number) => a + b;\nconsole.log(fn(1));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Expected 2 arguments, got 1",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts007": {
+        "language": Language.TYPESCRIPT,
+        "code": "type Value = string | number;\nconst val: Value = true;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: boolean not in union",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts008": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Config { url: string; }\nconst cfg: Config = { url: 'http://test.com', timeout: 5000 };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Object literal has unknown property 'timeout'",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts009": {
+        "language": Language.TYPESCRIPT,
+        "code": "const result: string = 123;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: number not assignable to string",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts010": {
+        "language": Language.TYPESCRIPT,
+        "code": "const arr: string[] = [];\narr.push(123);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Argument of type number not assignable to string",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts011": {
+        "language": Language.TYPESCRIPT,
+        "code": "function process<T>(value: T): T {\n    return value;\n}\nconsole.log(process<string>('hi').toFixed());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="toFixed doesn't exist on string",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "ts012": {
+        "language": Language.TYPESCRIPT,
+        "code": "const num: number = parseInt('abc');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="parseInt returns number but can be NaN",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts013": {
+        "language": Language.TYPESCRIPT,
+        "code": "const date: Date = '2024-01-01';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: string not assignable to Date",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts014": {
+        "language": Language.TYPESCRIPT,
+        "code": "const fn = (x: number) => x * 2;\nconsole.log(fn('5'));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Argument of type string not assignable to number",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts015": {
+        "language": Language.TYPESCRIPT,
+        "code": "type User = { name: string };\nconst user: User = null;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: null not assignable to User",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts016": {
+        "language": Language.TYPESCRIPT,
+        "code": "const keys = Object.keys({a: 1});\nconsole.log(keys.toUpperCase());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="keys is string[], toUpperCase is on string",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts017": {
+        "language": Language.TYPESCRIPT,
+        "code": "class Container<T> {\n    private value: T;\n}\nconst c = new Container<string>();\nc.value = 123;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Argument of type number not assignable to string",
+                line_start=4,
+                line_end=4,
+            )
+        ],
+    },
+    "ts018": {
+        "language": Language.TYPESCRIPT,
+        "code": "const func: () => void = () => 'return string';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: return string not assignable to void",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts019": {
+        "language": Language.TYPESCRIPT,
+        "code": "const data: Array<{id: number}> = [{id: 1}];\nconsole.log(data[0].name);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Property 'name' does not exist",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts020": {
+        "language": Language.TYPESCRIPT,
+        "code": "const handler = (e: MouseEvent) => e.clientX;\ndocument.addEventListener('keydown', handler);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Event type mismatch: keydown event is KeyboardEvent",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts021": {
+        "language": Language.TYPESCRIPT,
+        "code": "type Result<T> = T extends string ? number : boolean;\nconst r1: Result<string> = 'hello';\nconst r2: Result<number> = true;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Type error: string not assignable to number",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts022": {
+        "language": Language.TYPESCRIPT,
+        "code": "interface Person { name: string; }\nconst p: Partial<Person> = {};\nconsole.log(p.name.toUpperCase());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Property 'name' is optional, can be undefined",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "ts023": {
+        "language": Language.TYPESCRIPT,
+        "code": "const val: unknown = 'test';\nconsole.log(val.toUpperCase());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Property 'toUpperCase' does not exist on unknown",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts024": {
+        "language": Language.TYPESCRIPT,
+        "code": "const fn = <T>(arr: T[]): T => arr[0];\nconsole.log(fn([]));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Returns undefined for empty array",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts025": {
+        "language": Language.TYPESCRIPT,
+        "code": "const callback: (err: Error) => void = (err) => { throw err; };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Throwing in callback can crash caller",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
 }
 
 SECURITY_SNIPPETS = {
+    # PYTHON SECURITY - 25 snippets
     "py001": {
         "language": Language.PYTHON,
-        "code": """from flask import Flask, request, render_template_string
-import subprocess
-
-app = Flask(__name__)
-
-@app.route('/search')
-def search():
-    query = request.args.get('q', '')
-    sql = f"SELECT * FROM products WHERE name LIKE '%{query}%'"
-    return render_template_string(f"<h1>Results for {query}</h1>")
-
-@app.route('/ping')
-def ping():
-    host = request.args.get('host', 'localhost')
-    result = subprocess.run(f'ping -c 1 {host}', shell=True, capture_output=True)
-    return result.stdout""",
+        "code": 'query = f"SELECT * FROM users WHERE id = {user_id}"\ncursor.execute(query)',
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
                 description="SQL injection vulnerability",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Use parameterized queries",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Command injection - shell=True with user input",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Use list args, not shell=True",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Template injection - user input in render_template_string",
-                line_start=9,
-                line_end=9,
-                fix_suggestion="Use Jinja2 templates",
-            ),
-        ],
-    },
-    "js001": {
-        "language": Language.JAVASCRIPT,
-        "code": """const express = require('express');
-const crypto = require('crypto');
-const session = require('express-session');
-
-const app = express();
-app.use(express.urlencoded({ extended: true }));
-
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  const hash = crypto.createHash('md5').update(password).digest('hex');
-  const user = users.find(u => u.username === username && u.password === hash);
-  if (user) { req.session.userId = user.id; res.redirect('/dashboard'); }
-  else { res.redirect('/login?error=Invalid credentials'); }
-});""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Using MD5 for password hashing - cryptographically broken",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Use bcrypt",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No session secret configured",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Configure secure secret",
-            ),
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
     "py002": {
         "language": Language.PYTHON,
-        "code": """import pickle
-import os
-
-class User:
-    def __init__(self, username, role):
-        self.username = username
-        self.role = role
-
-def load_user_data(filename):
-    with open(filename, 'rb') as f:
-        return pickle.load(f)
-
-user = load_user_data(os.path.expanduser('~/uploads/user.pkl'))
-if user.role == 'admin':
-    os.system('rm -rf /tmp/*')""",
+        "code": "os.system('rm -rf ' + user_input)",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Pickle deserialization of untrusted data - arbitrary code execution",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Use JSON or msgpack",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Path traversal - user controls filename",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Validate path",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No authorization check before admin action",
-                line_start=13,
-                line_end=13,
-                fix_suggestion="Verify permissions",
-            ),
-        ],
-    },
-    "js002": {
-        "language": Language.JAVASCRIPT,
-        "code": """const fs = require('fs');
-const path = require('path');
-
-app.get('/download', (req, res) => {
-  const filename = req.query.file;
-  const filepath = path.join(__dirname, 'uploads', filename);
-  fs.readFile(filepath, (err, data) => {
-    if (err) { res.status(404).send('File not found'); return; }
-    res.send(data);
-  });
-});
-
-app.post('/upload', (req, res) => {
-  fs.writeFile(`/tmp/${req.body.filename}`, req.body.content, (err) => {
-    res.send('Uploaded');
-  });
-});""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Path traversal - .. in filename allows access outside uploads",
-                line_start=6,
-                line_end=6,
-                fix_suggestion="Validate path stays within directory",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Arbitrary file write - filename from user input",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Generate random filename",
-            ),
-        ],
-    },
-    "ts001": {
-        "language": Language.TYPESCRIPT,
-        "code": """import { exec } from 'child_process';
-import { Request, Response } from 'express';
-
-function runCommand(req: Request, res: Response) {
-  const cmd = req.body.command;
-  exec(cmd, (error, stdout, stderr) => {
-    res.json({ output: stdout, error: stderr });
-  });
-}
-
-function queryDatabase(req: Request, res: Response) {
-  const query = req.body.query;
-  const conn = mysql.createConnection({
-    host: 'localhost', user: 'root',
-    password: process.env.DB_PASS || 'admin'
-  });
-  conn.query(query, (err, results) => { res.json(results); });
-}""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Command injection - direct user input in exec",
-                line_start=7,
-                line_end=7,
-                fix_suggestion="Never pass user input to exec",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="SQL injection - user query passed directly",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Use parameterized queries",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Hardcoded database credentials",
-                line_start=12,
-                line_end=12,
-                fix_suggestion="Use environment variables",
-            ),
+                description="Command injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
     "py003": {
         "language": Language.PYTHON,
-        "code": """import jwt
-import base64
-import json
-
-def create_token(user_id, role='user'):
-    header = {'alg': 'none', 'typ': 'JWT'}
-    payload = {'user_id': user_id, 'role': role}
-    encoded = base64.b64encode(json.dumps(header).encode()).decode() + '.' + \
-              base64.b64encode(json.dumps(payload).encode()).decode() + '.'
-    return encoded
-
-def verify_token(token):
-    try:
-        parts = token.split('.')
-        if len(parts) != 3: return None
-        payload = json.loads(base64.b64decode(parts[1]))
-        return payload
-    except: return None
-
-token = create_token(123, 'admin')
-print(verify_token(token))""",
+        "code": "import pickle\ndata = pickle.loads(user_data)",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="JWT 'none' algorithm - no signature verification",
-                line_start=5,
-                line_end=5,
-                fix_suggestion="Use RS256 or HS256",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No signature verification - tokens can be forged",
-                line_start=14,
-                line_end=14,
-                fix_suggestion="Verify signature properly",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="No expiration claim - tokens never expire",
-                line_start=6,
-                line_end=6,
-                fix_suggestion="Add 'exp' claim",
-            ),
-        ],
-    },
-    "js003": {
-        "language": Language.JAVASCRIPT,
-        "code": """const axios = require('axios');
-
-async function fetchUserData(userId) {
-  return (await axios.get(`https://api.example.com/users/${userId}`, {
-    headers: { 'Authorization': `Bearer ${process.env.API_TOKEN}` }
-  })).data;
-}
-
-async function handleRequest(req, res) {
-  const data = await fetchUserData(req.params.id);
-  res.cookie('user_data', JSON.stringify(data), { httpOnly: false, secure: false });
-  res.json(data);
-}""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Cookie not httpOnly - vulnerable to XSS",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Set httpOnly: true",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Cookie sent over HTTP - should require secure flag",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Set secure: true",
-            ),
-        ],
-    },
-    "ts002": {
-        "language": Language.TYPESCRIPT,
-        "code": """import * as crypto from 'crypto';
-
-function generateApiKey(): string {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-function verifySignature(data: string, sig: string, pubKey: string): boolean {
-  return crypto.createVerify('SHA256').update(data).end().verify(pubKey, sig, 'base64');
-}""",
-        "issues": [
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="API key with insufficient entropy",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use 32 bytes or crypto.randomUUID",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="SHA256 unsuitable for password hashing",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Use bcrypt or argon2",
-            ),
+                description="Pickle deserialization vulnerability",
+                line_start=2,
+                line_end=2,
+            )
         ],
     },
     "py004": {
         "language": Language.PYTHON,
-        "code": """import yaml
-
-def load_config(filename):
-    with open(filename, 'r') as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
-
-def execute_script(filename):
-    config = load_config(filename)
-    if config.get('run'): exec(config['run'])
-
-config = load_config('config.yaml')
-print(f"App: {config.get('app_name')}")""",
+        "code": "password = 'admin123'\nif check_password(password): login()",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="YAML deserialization vulnerability - arbitrary code execution",
-                line_start=4,
-                line_end=4,
-                fix_suggestion="Use yaml.safe_load",
-            ),
-            Issue(
-                issue_type=IssueType.SECURITY,
-                description="Code injection - exec with untrusted input",
-                line_start=8,
-                line_end=8,
-                fix_suggestion="Never use exec with user data",
-            ),
+                description="Hardcoded password in source",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
     "py005": {
         "language": Language.PYTHON,
-        "code": """import xml.etree.ElementTree as ET
-
-def parse_xml_file(filename):
-    return ET.parse(filename).getroot()
-
-def process_user_xml(xml_string):
-    root = ET.fromstring(xml_string)
-    for user in root.findall('.//user'):
-        username = user.get('username')
-        password = user.findtext('password')
-        print(f"User: {username}, Password: {password}")
-
-xml = '''<users><user username="admin"><password>secret</password></user></users>'''
-process_user_xml(xml)""",
+        "code": "eval(user_expression)",
         "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="XXE vulnerability - XML with external entity could read files",
-                line_start=6,
-                line_end=6,
-                fix_suggestion="Disable external entities",
-            ),
+                description="Code injection via eval",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py006": {
+        "language": Language.PYTHON,
+        "code": "secret_key = 'sk-1234567890abcdef'\napi_key = base64.b64encode(secret_key)",
+        "issues": [
             Issue(
                 issue_type=IssueType.SECURITY,
-                description="Sensitive data printed in plain text",
-                line_start=10,
-                line_end=10,
-                fix_suggestion="Never log passwords",
-            ),
+                description="Encoding is not encryption",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py007": {
+        "language": Language.PYTHON,
+        "code": "subprocess.run(cmd, shell=True)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="shell=True enables command injection",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py008": {
+        "language": Language.PYTHON,
+        "code": "user_file = open(user_path, 'r')\ncontent = user_file.read()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Path traversal vulnerability",
+                line_start=1,
+                line_end=2,
+            )
+        ],
+    },
+    "py009": {
+        "language": Language.PYTHON,
+        "code": "yaml.load(data, Loader=yaml.FullLoader)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="YAML deserialization attack",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py010": {
+        "language": Language.PYTHON,
+        "code": "jwt.encode(payload, 'secret', algorithm='HS256')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Weak JWT secret or algorithm",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py011": {
+        "language": Language.PYTHON,
+        "code": "session['user_id'] = user_id\nsession['role'] = 'admin'",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Session stored without proper serialization",
+                line_start=1,
+                line_end=2,
+            )
+        ],
+    },
+    "py012": {
+        "language": Language.PYTHON,
+        "code": "import hashlib\nhash = hashlib.md5(password).hexdigest()",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="MD5 is cryptographically broken",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py013": {
+        "language": Language.PYTHON,
+        "code": "xml.etree.parse(user_xml_file)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="XXE vulnerability in XML parsing",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py014": {
+        "language": Language.PYTHON,
+        "code": "print(f'User: {username}, Password: {password}')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Sensitive data logged in plain text",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py015": {
+        "language": Language.PYTHON,
+        "code": "requests.get(url + user_input)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="URL injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py016": {
+        "language": Language.PYTHON,
+        "code": "import tempfile\nfd, path = tempfile.mkstemp()\nos.chmod(path, 0o777)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="World-readable temp file",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py017": {
+        "language": Language.PYTHON,
+        "code": "token = secrets.token_urlsafe(8)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Token too short - only 8 bytes",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py018": {
+        "language": Language.PYTHON,
+        "code": "redis.set(key, user_data)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No TTL on sensitive data in cache",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py019": {
+        "language": Language.PYTHON,
+        "code": "hmac.new(key, msg, hashlib.md5)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="MD5 in HMAC is insecure",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py020": {
+        "language": Language.PYTHON,
+        "code": "urllib.request.urlopen(url)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No SSL verification by default",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "py021": {
+        "language": Language.PYTHON,
+        "code": "data = json.loads(user_json)\nexec(data['code'])",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Arbitrary code execution via JSON",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py022": {
+        "language": Language.PYTHON,
+        "code": "class User: pass\nu = User()\nu.__dict__ = {'is_admin': True}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Object attribute injection",
+                line_start=3,
+                line_end=3,
+            )
+        ],
+    },
+    "py023": {
+        "language": Language.PYTHON,
+        "code": "config = {'debug': True, 'secret': 'key123'}\neval('config[\"secret\"]')",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Using eval with config data",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py024": {
+        "language": Language.PYTHON,
+        "code": "from cryptography.fernet import Fernet\ncipher = Fernet(key)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Using default/weak key",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "py025": {
+        "language": Language.PYTHON,
+        "code": "logging.basicConfig(level=logging.DEBUG)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Debug logging may expose sensitive data",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    # JAVASCRIPT SECURITY - 25 snippets
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": "const query = `SELECT * FROM users WHERE id = ${userId}`;\ndb.query(query);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SQL injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": "eval(userInput);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via eval",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": "const token = jwt.sign(payload, 'secret123');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Hardcoded JWT secret",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js004": {
+        "language": Language.JAVASCRIPT,
+        "code": "document.cookie = 'token=' + token;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Cookie without HttpOnly flag",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js005": {
+        "language": Language.JAVASCRIPT,
+        "code": "exec('rm -rf ' + userFile);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Command injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js006": {
+        "language": Language.JAVASCRIPT,
+        "code": "const hash = crypto.createHash('md5').update(password).digest();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="MD5 is cryptographically broken",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js007": {
+        "language": Language.JAVASCRIPT,
+        "code": "const html = '<div>' + userContent + '</div>';\nelement.innerHTML = html;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="XSS vulnerability",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js008": {
+        "language": Language.JAVASCRIPT,
+        "code": "const key = crypto.randomBytes(8).toString('hex');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Insufficient entropy - only 8 bytes",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js009": {
+        "language": Language.JAVASCRIPT,
+        "code": "const params = new URLSearchParams(userInput);\nredirect('/?' + params);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Parameter pollution or injection",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js010": {
+        "language": Language.JAVASCRIPT,
+        "code": "fetch('/api?token=' + localStorage.getItem('token'))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Token in URL query param",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js011": {
+        "language": Language.JAVASCRIPT,
+        "code": "const user = JSON.parse(localStorage.getItem('user'));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No integrity check on stored data",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js012": {
+        "language": Language.JAVASCRIPT,
+        "code": "const regex = new RegExp(userPattern);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Regex denial of service (ReDoS)",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js013": {
+        "language": Language.JAVASCRIPT,
+        "code": "process.env.API_KEY = 'secret123';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Setting env variable at runtime not secure",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js014": {
+        "language": Language.JAVASCRIPT,
+        "code": "const data = fs.readFileSync('/etc/passwd');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Path traversal - arbitrary file read",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js015": {
+        "language": Language.JAVASCRIPT,
+        "code": "const vm = require('vm');\nvm.runInNewContext(userCode);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via vm",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js016": {
+        "language": Language.JAVASCRIPT,
+        "code": "const pwd = crypto.createHash('sha1').update(password).digest();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SHA1 is cryptographically broken",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js017": {
+        "language": Language.JAVASCRIPT,
+        "code": "socket.emit('message', userData);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="WebSocket without origin check",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js018": {
+        "language": Language.JAVASCRIPT,
+        "code": "const deserialized = JSON.parse(untrustedData);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No prototype pollution check",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js019": {
+        "language": Language.JAVASCRIPT,
+        "code": "function handler(req, res) {\n  res.setHeader('Access-Control-Allow-Origin', '*');\n}",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="CORS allowing all origins",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "js020": {
+        "language": Language.JAVASCRIPT,
+        "code": "const secret = Buffer.from(password, 'base64');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Encoding is not encryption",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js021": {
+        "language": Language.JAVASCRIPT,
+        "code": "child_process.execSync(userCommand);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Arbitrary command execution",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js022": {
+        "language": Language.JAVASCRIPT,
+        "code": "const session = { userId: user.id, role: 'admin' };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Role stored in client-side session",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js023": {
+        "language": Language.JAVASCRIPT,
+        "code": "new Function(userCode)();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via Function constructor",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js024": {
+        "language": Language.JAVASCRIPT,
+        "code": "const key = '1234567890123456';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Short encryption key",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "js025": {
+        "language": Language.JAVASCRIPT,
+        "code": "sessionStorage.setItem('token', token);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Sensitive data in sessionStorage",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    # TYPESCRIPT SECURITY - 25 snippets
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": "const query = `SELECT * FROM users WHERE id = ${userId}`;\ndb.query(query);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SQL injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": "const hash = crypto.createHash('md5').update(password).digest('hex');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="MD5 is cryptographically broken",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts003": {
+        "language": Language.TYPESCRIPT,
+        "code": "exec(`rm -rf ${userPath}`);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Command injection vulnerability",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts004": {
+        "language": Language.TYPESCRIPT,
+        "code": "document.cookie = `token=${token}`;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Cookie without HttpOnly and Secure flags",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts005": {
+        "language": Language.TYPESCRIPT,
+        "code": "const fn = new Function(userCode);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via Function constructor",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts006": {
+        "language": Language.TYPESCRIPT,
+        "code": "const jwt = require('jsonwebtoken');\nconst token = jwt.sign(payload, 'secret');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Hardcoded JWT secret",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts007": {
+        "language": Language.TYPESCRIPT,
+        "code": "innerHTML = userContent;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="XSS vulnerability via innerHTML",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts008": {
+        "language": Language.TYPESCRIPT,
+        "code": "const crypto = require('crypto');\nconst key = crypto.randomBytes(8);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Only 8 bytes of entropy",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts009": {
+        "language": Language.TYPESCRIPT,
+        "code": "import { exec } from 'child_process';\nexec(`ls ${userDir}`);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Command injection vulnerability",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts010": {
+        "language": Language.TYPESCRIPT,
+        "code": "const serializer = new Serializer();\nconst data = serializer.unserialize(untrusted);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Insecure deserialization",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts011": {
+        "language": Language.TYPESCRIPT,
+        "code": "const sha1 = crypto.createHash('sha1').update(data).digest();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SHA1 is cryptographically broken",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts012": {
+        "language": Language.TYPESCRIPT,
+        "code": "res.setHeader('Access-Control-Allow-Origin', '*');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="CORS allowing all origins",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts013": {
+        "language": Language.TYPESCRIPT,
+        "code": "const key = process.env.SECRET || 'default-secret';",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Fallback secret is weak",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts014": {
+        "language": Language.TYPESCRIPT,
+        "code": "const buffer = Buffer.from(sensitive, 'utf-8');",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Encoding is not encryption",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts015": {
+        "language": Language.TYPESCRIPT,
+        "code": "fs.writeFileSync('/tmp/' + filename, data);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Path traversal in file write",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts016": {
+        "language": Language.TYPESCRIPT,
+        "code": "eval(userExpression);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via eval",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts017": {
+        "language": Language.TYPESCRIPT,
+        "code": "const regex = new RegExp(input, 'g');\nregex.test(input);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Regular expression DoS (ReDoS)",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts018": {
+        "language": Language.TYPESCRIPT,
+        "code": "const hmac = crypto.createHmac('sha1', key).update(data).digest();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SHA1 in HMAC is insecure",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts019": {
+        "language": Language.TYPESCRIPT,
+        "code": "const parsed = JSON.parse(userJson);\nparsed.__proto__.isAdmin = true;",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Prototype pollution vulnerability",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts020": {
+        "language": Language.TYPESCRIPT,
+        "code": "const secure = require('crypto').createCipheriv('aes-128-cbc', key, iv);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Weak cipher AES-128-CBC",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts021": {
+        "language": Language.TYPESCRIPT,
+        "code": "import { load } from 'js-yaml';\nconst data = load(untrustedYaml);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="YAML deserialization vulnerability",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts022": {
+        "language": Language.TYPESCRIPT,
+        "code": "ws.on('message', (data) => {\n  eval(data.toString());\n});",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Code injection via WebSocket",
+                line_start=2,
+                line_end=2,
+            )
+        ],
+    },
+    "ts023": {
+        "language": Language.TYPESCRIPT,
+        "code": "const { data } = await axios.get(url, { params: { apiKey: key } });",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="API key in URL query parameters",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts024": {
+        "language": Language.TYPESCRIPT,
+        "code": "const session = { userId: 123, role: 'admin' };",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Sensitive role in session data",
+                line_start=1,
+                line_end=1,
+            )
+        ],
+    },
+    "ts025": {
+        "language": Language.TYPESCRIPT,
+        "code": "new (Function('return ' + userCode))();",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Dynamic code execution vulnerability",
+                line_start=1,
+                line_end=1,
+            )
         ],
     },
 }
@@ -1064,10 +2874,46 @@ class MyEnvironment(Environment):
             "message": "No matching issue found. Check line number and issue type.",
         }
 
+    def _normalize_for_match(self, text: str) -> str:
+        text = text.lower()
+        text = re.sub(r"[^a-z0-9]", "", text)
+        text = re.sub(r"(spaces|space)", "space", text)
+        text = re.sub(r"(variables|variable)", "variable", text)
+        text = re.sub(r"(functions|function)", "function", text)
+        text = re.sub(r"(names|name)", "name", text)
+        for suffix in ["ing", "ed", "es", "s"]:
+            text = re.sub(rf"{suffix}$", "", text)
+        return text
+
+    def _fuzzy_match(self, text1: str, text2: str) -> bool:
+        norm1 = self._normalize_for_match(text1)
+        norm2 = self._normalize_for_match(text2)
+        if norm1 in norm2 or norm2 in norm1:
+            return True
+        words1 = set(norm1.split())
+        words2 = set(norm2.split())
+        common = words1 & words2
+        if len(common) >= 2:
+            return True
+        if len(common) == 1:
+            key_word = common.pop()
+            if key_word in ["snakecase", "verbose", "helptext", "operator", "model"]:
+                return True
+        return False
+
     def _description_matches(self, gt: str, rep: str) -> bool:
+        if gt.lower() in rep.lower() or rep.lower() in gt.lower():
+            return True
         gt_words = set(re.findall(r"\b\w+\b", gt.lower()))
         rep_words = set(re.findall(r"\b\w+\b", rep.lower()))
-        return len(gt_words & rep_words) >= 2
+        common = gt_words & rep_words
+        if len(common) >= 2:
+            return True
+        if len(common) == 1:
+            key_word = common.pop()
+            if key_word in ["snakecase", "verbose", "helptext", "operator", "model"]:
+                return True
+        return self._fuzzy_match(gt.lower(), rep.lower())
 
     def _calculate_reward(self, action: CodeReviewAction, match: dict) -> float:
         issue_weight = 1.0 / self._initial_issue_count
