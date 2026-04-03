@@ -212,10 +212,10 @@ def log_step(
     )
 
 
-def log_end(success: bool, steps: int, rewards: list[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
     rewards_value = ",".join(f"{reward:.2f}" for reward in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_value}",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_value}",
         flush=True,
     )
 
@@ -413,10 +413,14 @@ async def main() -> None:
                 break
 
         success = observation is not None and observation.issues_remaining == 0
+        # Calculate normalized score (sum of rewards, clamped to 0.0-1.0)
+        score = sum(rewards) if rewards else 0.0
+        score = min(max(score, 0.0), 1.0)
 
     except Exception:
         should_exit_with_error = True
         success = False
+        score = 0.0
 
     finally:
         try:
@@ -424,7 +428,7 @@ async def main() -> None:
         except Exception:
             pass
 
-        log_end(success=success, steps=steps_taken, rewards=rewards)
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
     if should_exit_with_error:
         raise SystemExit(1)
