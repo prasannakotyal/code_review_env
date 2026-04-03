@@ -2,30 +2,30 @@ import pytest
 
 
 def test_imports():
-    from code_review_env.models import (
+    from my_env.models import (
         CodeReviewAction,
         CodeReviewObservation,
         CodeReviewState,
     )
-    from code_review_env.server.environment import CodeReviewEnvironment
+    from my_env.server.my_env_environment import MyEnvironment
 
     assert CodeReviewAction is not None
     assert CodeReviewObservation is not None
     assert CodeReviewState is not None
-    assert CodeReviewEnvironment is not None
+    assert MyEnvironment is not None
 
 
 def test_environment_creation():
-    from code_review_env.server.environment import CodeReviewEnvironment
+    from my_env.server.my_env_environment import MyEnvironment
 
-    env = CodeReviewEnvironment()
+    env = MyEnvironment()
     assert env is not None
 
 
 def test_environment_reset():
-    from code_review_env.server.environment import CodeReviewEnvironment
+    from my_env.server.my_env_environment import MyEnvironment
 
-    env = CodeReviewEnvironment()
+    env = MyEnvironment()
     obs = env.reset(task_name="style_check")
 
     assert obs is not None
@@ -35,10 +35,10 @@ def test_environment_reset():
 
 
 def test_environment_step():
-    from code_review_env.models import CodeReviewAction, IssueType
-    from code_review_env.server.environment import CodeReviewEnvironment
+    from my_env.models import CodeReviewAction, IssueType
+    from my_env.server.my_env_environment import MyEnvironment
 
-    env = CodeReviewEnvironment()
+    env = MyEnvironment()
     obs = env.reset(task_name="style_check")
 
     action = CodeReviewAction(
@@ -55,10 +55,10 @@ def test_environment_step():
 
 
 def test_rewards_stay_in_normalized_range():
-    from code_review_env.models import CodeReviewAction, IssueType
-    from code_review_env.server.environment import CodeReviewEnvironment
+    from my_env.models import CodeReviewAction, IssueType
+    from my_env.server.my_env_environment import MyEnvironment
 
-    env = CodeReviewEnvironment()
+    env = MyEnvironment()
     env.reset(task_name="style_check")
 
     false_positive = env.step(

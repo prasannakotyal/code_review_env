@@ -1,12 +1,12 @@
-from code_review_env.inference import log_end, log_start, log_step
+from my_env.inference import log_end, log_start, log_step
 
 
 def test_log_start_format(capsys):
-    log_start(task="style_check", env="code_review", model="Qwen/Qwen2.5-7B-Instruct")
+    log_start(task="style_check", env="my_env", model="Qwen/Qwen2.5-7B-Instruct")
     captured = capsys.readouterr()
     assert (
         captured.out
-        == "[START] task=style_check env=code_review model=Qwen/Qwen2.5-7B-Instruct\n"
+        == "[START] task=style_check env=my_env model=Qwen/Qwen2.5-7B-Instruct\n"
     )
 
 
