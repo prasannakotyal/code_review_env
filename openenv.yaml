@@ -2,9 +2,9 @@ spec_version: 1
 name: my_env
 version: "0.1.0"
 description: OpenEnv code review environment for detecting style, bug, and security issues in Python, JavaScript, and TypeScript snippets
-author: nino
+author: prasannakotyal
 license: MIT
-repository: 
+repository: https://github.com/prasannakotyal/code_review_env
 python_version: "3.11"
 
 tasks:
