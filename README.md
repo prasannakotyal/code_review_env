@@ -6,7 +6,7 @@ sdk: docker
 app_port: 8000
 base_path: /docs
 models:
-  - Qwen/Qwen2.5-7B-Instruct
+  - Qwen/Qwen2.5-Coder-32B-Instruct
 tags:
   - openenv
   - code-review
@@ -18,7 +18,7 @@ tags:
 
 # Code Review Environment
 
-### Meta x PyTorch OpenEnv Hackathon — Round 1 Submission
+### Meta x PyTorch OpenEnv Hackathon - Round 1 Submission
 
 **Built for the Scaler Meta PyTorch Hackathon**
 
@@ -30,43 +30,9 @@ tags:
 
 ---
 
-## The Problem Statement
+## Overview
 
-The Meta x PyTorch OpenEnv Hackathon challenged participants to:
-
-> **"Build a complete, real-world OpenEnv environment that an AI agent can learn from through the standard step() / reset() / state() API."**
-
-Key requirements:
-- Must simulate a real-world task (NOT games or toys)
-- Implement full OpenEnv spec with typed models
-- Minimum 3 tasks with graders (Easy to Medium to Hard)
-- Meaningful reward function with partial progress signals
-- Baseline inference script with reproducible scores
-- Deploy to Hugging Face Spaces with working Dockerfile
-
----
-
-## Why Code Review?
-
-Every software company on earth has the same problem — code review is expensive, slow, and depends on senior engineers who are always busy.
-
-Consider these facts:
-- A senior engineer spends 3-5 hours per day reviewing code
-- Companies like Google, Amazon, and Meta employ thousands of engineers just for reviews
-- Junior developers wait days for feedback on their code
-- Bugs that slip past review cost companies millions
-
-The solution? Train AI agents to do code review automatically.
-
-Our environment gives AI agents real code snippets and teaches them to find bugs, security vulnerabilities, and quality issues — exactly what a senior engineer does during a pull request review.
-
-This is not a toy problem. This is a skill that has immediate, measurable value in the real world.
-
----
-
-## What is This Project?
-
-The Code Review Environment is a production-ready Reinforcement Learning environment where AI agents learn to perform intelligent code reviews.
+The Code Review Environment is a production-ready Reinforcement Learning environment where AI agents learn to perform intelligent code reviews. It contains **225 real-world code snippets** across 3 languages (Python, JavaScript, TypeScript) with issues in 3 categories (style, bugs, security).
 
 ```
 AI AGENT
@@ -87,125 +53,72 @@ CODE REVIEW ENVIRONMENT (Running on Hugging Face)
 3 TASK GRADERS
   - style_check:  Style issues (Easy, 5 steps)
   - bug_hunt:     Bug detection (Medium, 7 steps)
-  - full_review:   Security + fixes (Hard, 10 steps)
+  - full_review:  Security + fixes (Hard, 10 steps)
 ```
 
 ---
 
 ## The 3 Tasks
 
-### Task 1 — Style Check (Easy)
+| Task | Difficulty | Max Steps | Snippets | Focus |
+|------|------------|-----------|----------|-------|
+| `style_check` | Easy | 5 | 75 | Style violations, naming, formatting |
+| `bug_hunt` | Medium | 7 | 75 | Logic errors, runtime bugs, edge cases |
+| `full_review` | Hard | 10 | 75 | Security vulnerabilities + fix suggestions |
 
-The agent receives code with style violations and must identify them.
+### Task 1: Style Check (Easy)
 
-Example:
+Find style violations like naming conventions, missing type hints, and formatting issues.
+
 ```python
+# Example snippet
 def calculate(a,b):
     return a+b
-
 result=calculate(10,20)
-print(result)
 ```
 
-What the agent must find:
-- Function name should use snake_case (`calculate` → `calculate_sum`)
-- Missing spaces around operator (`a+b` → `a + b`)
-- Variable should use snake_case (`result` → `result_value`)
+Issues to find: f-string usage, list comprehension, snake_case naming, type hints
 
-**Max steps:** 5 | **Snippets:** 8 | **Reward:** 0.0 - 1.0
+### Task 2: Bug Hunt (Medium)
 
----
+Find functional bugs like off-by-one errors, null checks, and logic issues.
 
-### Task 2 — Bug Hunt (Medium)
-
-The agent must identify functional bugs and logic errors.
-
-Example (JavaScript):
 ```javascript
+// Example snippet
 function process(items) {
-    let result = [];
-    for (let i = 0; i <= items.length; i++) {  // Off-by-one error!
+    for (let i = 0; i <= items.length; i++) {  // Off-by-one!
         result.push(items[i] * 2);
     }
-    return result;
 }
 ```
 
-What the agent must find:
-- Off-by-one error: should use `<` not `<=`
-- Accesses undefined on last iteration causing NaN
+Issues to find: array bounds, null/undefined, async/await, type mismatches
 
-**Max steps:** 7 | **Snippets:** 8 | **Reward:** 0.0 - 1.0
+### Task 3: Full Review (Hard)
 
----
+Find security vulnerabilities AND provide fix suggestions.
 
-### Task 3 — Full Review (Hard)
-
-The agent must identify security issues AND provide fix suggestions.
-
-Example (Python):
 ```python
-import sqlite3
-
-def get_user(user_id):
-    conn = sqlite3.connect("app.db")
-    cursor = conn.cursor()
-    query = f"SELECT * FROM users WHERE id = {user_id}"  # SQL Injection!
-    cursor.execute(query)
-    result = cursor.fetchone()
-    conn.close()
-    return result
+# Example snippet
+query = f"SELECT * FROM users WHERE id = {user_id}"  # SQL Injection!
+cursor.execute(query)
 ```
 
-What the agent must find:
-- SQL injection vulnerability
-- No input sanitization on user_id
-- No error handling for database operations
-- Provide fix: Use parameterized queries
-
-**Max steps:** 10 | **Snippets:** 8 | **Reward:** 0.0 - 1.0
+Issues to find: SQL injection, XSS, hardcoded secrets, path traversal
 
 ---
 
 ## Reward Function
 
-The reward provides partial progress signals — agents don't need to be perfect to learn:
+| Action | Reward |
+|--------|--------|
+| Correct issue found | `1.0 / total_issues` |
+| Correct issue + fix (hard mode) | Full weight |
+| Correct issue, wrong fix (hard mode) | Half weight |
+| Wrong issue (false positive) | 0.0 |
+| Duplicate issue | 0.0 |
 
-| Component | Weight | Description |
-|-----------|--------|-------------|
-| Correct issue | 100% | Based on issues correctly identified |
-| Fix suggestion | +50% | Bonus for correct fix (hard mode only) |
-| False positive | -100% | Penalty for wrong issues |
-| Duplicate | 0% | No penalty, no reward |
-
-An agent that finds half the bugs gets rewarded ~0.5. It learns progressively.
-
----
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/reset` | POST | Start new episode, get code to review |
-| `/step` | POST | Submit review action, get reward |
-| `/state` | GET | Get current episode metadata |
-| `/docs` | GET | FastAPI OpenAPI documentation |
-| `/web` | GET | OpenEnv web playground |
-
-### Try It Online
-
-```bash
-# Get a code snippet to review
-curl -X POST https://prasannakotyal-code-review-env.hf.space/reset \
-  -H "Content-Type: application/json" \
-  -d '{"task_name": "style_check"}'
-
-# Submit your review
-curl -X POST https://prasannakotyal-code-review-env.hf.space/step \
-  -H "Content-Type: application/json" \
-  -d '{"issue_type": "style", "description": "Function name should use snake_case", "line_number": 1}'
-```
+Total reward is normalized to 0.0 - 1.0 range.
 
 ---
 
@@ -225,63 +138,81 @@ uv sync
 uv run python -m server.app
 ```
 
-Then visit:
-- Health: http://127.0.0.1:8000/health
-- API Docs: http://127.0.0.1:8000/docs
-- Web Playground: http://127.0.0.1:8000/web
+Visit: http://127.0.0.1:8000/docs
 
 ### 3. Run Inference
 
 ```bash
-# Copy and edit environment variables
-cp .env.example .env
-# Edit .env and add your HF_TOKEN
+# Create local env file with your token (never committed)
+echo "HF_TOKEN=your_token_here" > .env.local
 
 # Run inference
 uv run python inference.py
 ```
 
-The script outputs the required hackathon format:
-
-```text
-[START] task=style_check env=my_env model=Qwen/Qwen2.5-7B-Instruct
-[STEP] step=1 action=style@1@Function_name_should_use_snake_case reward=0.33 done=false error=null
-[STEP] step=2 action=style@2@Missing_spaces_around_operator reward=0.33 done=false error=null
-[END] success=true steps=2 rewards=0.33,0.33
+Output format:
+```
+[START] task=style_check env=my_env model=Qwen/Qwen2.5-Coder-32B-Instruct
+[STEP] step=1 action=style@2@Use_arrow_function reward=1.00 done=true error=null
+[END] success=true steps=1 rewards=1.00
 ```
 
 ---
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `HF_TOKEN` | Yes | Hugging Face API token. Get from https://huggingface.co/settings/tokens |
-| `API_BASE_URL` | No | LLM endpoint (default: `https://router.huggingface.co/v1`) |
-| `MODEL_NAME` | No | Model to use (default: `Qwen/Qwen2.5-7B-Instruct`) |
-| `ENV_BASE_URL` | No | Environment URL (default: hosted Space) |
-| `MY_ENV_TASK` | No | Task: `style_check`, `bug_hunt`, or `full_review` |
-| `TEMPERATURE` | No | LLM temperature (default: 0.0) |
-| `MAX_TOKENS` | No | Max tokens per response (default: 300) |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `HF_TOKEN` | Yes | - | HuggingFace API token |
+| `API_BASE_URL` | No | `https://router.huggingface.co/v1` | LLM endpoint |
+| `MODEL_NAME` | No | `Qwen/Qwen2.5-Coder-32B-Instruct` | Model to use |
+| `ENV_BASE_URL` | No | HF Space URL | Environment URL |
+| `MY_ENV_TASK` | No | `style_check` | Task name |
+
+**Security Note:** Store your `HF_TOKEN` in `.env.local` (gitignored) or as a GitHub Secret for CI/CD.
 
 ---
 
-## Submission Validation
+## API Endpoints
 
-Before submitting, run these checks:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/reset` | POST | Start new episode |
+| `/step` | POST | Submit review action |
+| `/state` | GET | Get current state |
+| `/docs` | GET | OpenAPI documentation |
+
+### Example API Call
 
 ```bash
-# Install dev dependencies
-uv sync --extra dev
+# Reset and get code snippet
+curl -X POST https://prasannakotyal-code-review-env.hf.space/reset \
+  -H "Content-Type: application/json" \
+  -d '{"task_name": "style_check"}'
 
+# Submit review
+curl -X POST https://prasannakotyal-code-review-env.hf.space/step \
+  -H "Content-Type: application/json" \
+  -d '{"issue_type": "style", "description": "Use arrow function", "line_number": 2}'
+```
+
+---
+
+## Validation
+
+```bash
 # Run tests
-uv run python -m pytest -q
+uv run pytest tests/ -v
 
 # Validate OpenEnv spec
-uv run openenv validate .
+uv run openenv validate
 
-# Build Docker image
-docker build -t my-env:latest -f server/Dockerfile .
+# Build Docker
+docker build -t code-review-env:latest .
+
+# Full validation
+./scripts/validate-submission.sh https://prasannakotyal-code-review-env.hf.space
 ```
 
 ---
@@ -289,76 +220,63 @@ docker build -t my-env:latest -f server/Dockerfile .
 ## Project Structure
 
 ```
-my_env/
-├── .env.example          # Environment variables template
-├── .env.inference        # Default inference config
-├── .gitignore
-├── Dockerfile            # Container definition (root)
-├── LICENSE               # MIT License
-├── README.md             # This file
-├── __init__.py           # Package exports
-├── client.py             # EnvClient for Python
-├── inference.py          # Baseline inference script
-├── models.py             # Pydantic models
-├── openenv.yaml          # OpenEnv metadata
-├── pyproject.toml        # Project dependencies
-├── requirements.txt      # pip dependencies
+code_review_env/
+├── inference.py              # Baseline inference script
+├── models.py                 # Pydantic models (Action, Observation)
+├── client.py                 # Python client for environment
+├── openenv.yaml              # OpenEnv specification
 ├── server/
-│   ├── __init__.py
-│   ├── app.py            # FastAPI server
-│   ├── my_env_environment.py  # Core RL logic
-│   ├── Dockerfile        # Server container
-│   └── requirements.txt  # Server dependencies
-├── scripts/
-│   └── validate-submission.sh  # Pre-submission validation
+│   ├── app.py                # FastAPI server
+│   └── my_env_environment.py # Core environment (225 snippets)
 ├── tests/
 │   ├── test_environment.py
 │   └── test_inference.py
-└── uv.lock
+├── scripts/
+│   └── validate-submission.sh
+├── .env.inference            # Default config (no secrets)
+├── .gitignore                # Ignores .env.local, secrets
+├── Dockerfile
+└── README.md
 ```
 
 ---
 
 ## Baseline Scores
 
-| Task | Score | Status |
-|------|-------|--------|
-| style_check (Easy) | ~0.33 | Passed |
-| bug_hunt (Medium) | ~0.50 | Passed |
-| full_review (Hard) | ~0.50 | Passed |
+| Task | Model | Reward | Steps |
+|------|-------|--------|-------|
+| style_check | Qwen2.5-Coder-32B | 1.00 | 1 |
+| bug_hunt | Qwen2.5-Coder-32B | 1.00 | 1 |
+| full_review | Qwen2.5-Coder-32B | 1.00 | 1 |
 
 ---
 
-## Live Links
+## Team Setup
 
+For teammates:
+
+1. Clone the repo: `git clone git@github.com:prasannakotyal/code_review_env.git`
+2. Create your own `.env.local` with your HF token
+3. Run `uv sync` to install dependencies
+4. Run tests: `uv run pytest`
+
+**Note:** Each team member uses their own HF token in `.env.local`. The file is gitignored and never shared.
+
+---
+
+## Links
+
+- **Live API**: https://prasannakotyal-code-review-env.hf.space
 - **API Docs**: https://prasannakotyal-code-review-env.hf.space/docs
-- **Web Playground**: https://prasannakotyal-code-review-env.hf.space/web
-- **Health Check**: https://prasannakotyal-code-review-env.hf.space/health
-- **Hugging Face Space**: https://huggingface.co/spaces/Prasannakotyal/code-review-env
-- **GitHub Repository**: https://github.com/prasannakotyal/code_review_env
-
----
-
-## Tech Stack
-
-| Technology | Purpose |
-|------------|---------|
-| Python 3.11 | Core language |
-| FastAPI | Web server framework |
-| Pydantic | Type-safe data models |
-| Docker | Containerization |
-| Hugging Face Spaces | Cloud deployment |
-| OpenEnv | RL environment framework |
-| OpenAI Client | LLM inference |
+- **HF Space**: https://huggingface.co/spaces/Prasannakotyal/code-review-env
+- **GitHub**: https://github.com/prasannakotyal/code_review_env
 
 ---
 
 ## License
 
-MIT License — See [`LICENSE`](LICENSE)
+MIT License - See [LICENSE](LICENSE)
 
 ---
 
-## About
-
-Built for the Meta x PyTorch OpenEnv Hackathon organized by Scaler School of Technology in collaboration with Meta, Hugging Face, and PyTorch.
+Built for the Meta x PyTorch OpenEnv Hackathon organized by Scaler School of Technology.

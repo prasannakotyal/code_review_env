@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -19,15 +20,36 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Virtual environments
 .venv/
 venv/
 ENV/
 env/
+
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
+
+# Caches
 .ruff_cache/
 .pytest_cache/
+
+# Secrets - NEVER commit these
+.env
+.env.local
+.env.*.local
+*.secret
+*.key
+credentials.json
+secrets.json
+
+# Keep these (no secrets)
+!.env.example
+!.env.inference

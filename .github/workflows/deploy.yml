@@ -1,0 +1,39 @@
+name: Deploy to HuggingFace Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv sync
+          
+      - name: Run tests
+        run: |
+          uv run pytest -v
+          
+      - name: Build Docker image
+        run: |
+          docker build -t code-review-env:latest .
+          
+      - name: Push to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          echo "$HF_TOKEN" | docker login huggingface.co -u ${{ secrets.HF_USERNAME }} --password-stdin
+          docker tag code-review-env:latest hf.co/spaces/${{ secrets.HF_SPACE_REPO }}:latest
+          docker push hf.co/spaces/${{ secrets.HF_SPACE_REPO }}:latest
