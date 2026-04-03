@@ -1,0 +1,60 @@
+spec_version: 1
+name: my_env
+version: "0.1.0"
+description: OpenEnv code review environment for detecting style, bug, and security issues in Python, JavaScript, and TypeScript snippets
+author: nino
+license: MIT
+repository: 
+python_version: "3.11"
+
+tasks:
+  - name: style_check
+    description: Identify code style violations (naming, formatting, conventions)
+    difficulty: easy
+    max_steps: 5
+  - name: bug_hunt
+    description: Find functional bugs and logic errors in code
+    difficulty: medium
+    max_steps: 7
+  - name: full_review
+    description: Identify issues and provide correct fixes for security/correctness problems
+    difficulty: hard
+    max_steps: 10
+
+observation:
+  code_snippet: string
+  issues_found: array
+  issues_remaining: integer
+  step_count: integer
+  message: string
+  task_name: string
+  language: string
+
+action:
+  issue_type: enum[style, bug, security]
+  description: string
+  line_number: integer
+  fix_suggestion: string (optional, for hard mode)
+
+reward:
+  range:
+    min: 0.0
+    max: 1.0
+  style_check:
+    correct_issue: 0.33
+    false_positive: 0.0
+  bug_hunt:
+    correct_issue: 0.5
+    false_positive: 0.0
+  full_review:
+    correct_issue: 0.5
+    correct_fix: 0.5
+    false_positive: 0.0
+
+tags:
+  - code-review
+  - python
+  - javascript
+  - typescript
+  - static-analysis
+  - security

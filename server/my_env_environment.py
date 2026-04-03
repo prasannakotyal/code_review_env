@@ -1,0 +1,752 @@
+import random
+import uuid
+import re
+from typing import Optional, List
+
+from pydantic import BaseModel
+
+try:
+    from models import (
+        Issue,
+        IssueType,
+        Language,
+        TaskName,
+        CodeReviewAction,
+        CodeReviewObservation,
+        CodeReviewState,
+        FoundIssue,
+    )
+except ImportError:
+    from ..models import (
+        Issue,
+        IssueType,
+        Language,
+        TaskName,
+        CodeReviewAction,
+        CodeReviewObservation,
+        CodeReviewState,
+        FoundIssue,
+    )
+
+try:
+    from openenv.core.env_server.interfaces import Environment
+except ImportError:
+    from openenv.core.env_server import Environment
+
+
+STYLE_SNIPPETS = {
+    "py001": {
+        "language": Language.PYTHON,
+        "code": "def calculate(a,b):\n    return a+b\n\nresult=calculate(10,20)\nprint(result)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Function name should use snake_case",
+                line_start=1,
+                line_end=1,
+                fix_suggestion="calculate -> calculate_sum",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around operator",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="a+b -> a + b",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Variable should use snake_case",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="result -> result_value",
+            ),
+        ],
+    },
+    "py002": {
+        "language": Language.PYTHON,
+        "code": "import os\n\ndef getData():\n    x = 10\n    return x\n\nprint(getData())",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Function name should use snake_case",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="getData -> get_data",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Variable name should use snake_case",
+                line_start=3,
+                line_end=3,
+                fix_suggestion="x -> value",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Unused import os",
+                line_start=1,
+                line_end=1,
+            ),
+        ],
+    },
+    "py003": {
+        "language": Language.PYTHON,
+        "code": "def process_items(items):\n    result=[]\n    for item in items:\n        if item>0:\n            result.append(item*2)\n    return result\n\ndata = [1, -2, 3, -4, 5]\nprint(process_items(data))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing space after colon in list literal",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="result=[] -> result = []",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Space missing around comparison operator",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="item>0 -> item > 0",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Function should have docstring",
+                line_start=1,
+                line_end=1,
+            ),
+        ],
+    },
+    "py004": {
+        "language": Language.PYTHON,
+        "code": "def add_numbers(a,b,c):\n    total = a + b + c\n    return total\nx=add_numbers(1,2,3)\nprint(x)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Function name should use snake_case",
+                line_start=1,
+                line_end=1,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Variable name should use snake_case",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="total -> total_sum",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around operators",
+                line_start=2,
+                line_end=2,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing space around assignment",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="x= -> x = ",
+            ),
+        ],
+    },
+    "py005": {
+        "language": Language.PYTHON,
+        "code": "def do_something(x,y):\n    if x>y:\n        return x-y\n    else:\n        return y-x\n\nresult=do_something(10,5)\nprint(result)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around comparison operator",
+                line_start=2,
+                line_end=2,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around arithmetic operators",
+                line_start=2,
+                line_end=3,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around operators",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "py006": {
+        "language": Language.PYTHON,
+        "code": 'def get_user(name,age):\n    return f"User: {name}, Age: {age}"\n\nuser=get_user("Alice",30)\nprint(user)',
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Function name should use snake_case",
+                line_start=1,
+                line_end=1,
+                fix_suggestion="get_user -> get_user_info",
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Parameter names should use snake_case",
+                line_start=1,
+                line_end=1,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around assignment",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "py007": {
+        "language": Language.PYTHON,
+        "code": "def filter_list(items):\n    result=[x for x in items if x>10]\n    return result\n\ndata=[5,15,25,8,12]\nfiltered=filter_list(data)\nprint(filtered)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing space after comma in list",
+                line_start=2,
+                line_end=2,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing space after comma in list",
+                line_start=4,
+                line_end=4,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around assignment",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+    "py008": {
+        "language": Language.PYTHON,
+        "code": "def calculate_average(numbers):\n    sum_val=sum(numbers)\n    count=len(numbers)\n    avg=sum_val/count\n    return avg\n\nnums=[10,20,30,40,50]\nresult=calculate_average(nums)\nprint(result)",
+        "issues": [
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Variable names should use snake_case",
+                line_start=2,
+                line_end=3,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around operators",
+                line_start=3,
+                line_end=3,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing spaces around assignment",
+                line_start=2,
+                line_end=3,
+            ),
+            Issue(
+                issue_type=IssueType.STYLE,
+                description="Missing space after comma in list",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+}
+
+BUG_SNIPPETS = {
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": "function findElement(arr, index) {\n    return arr[index];\n}\n\nconst data = [1, 2, 3];\nconsole.log(findElement(data, 3));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Off-by-one error index is out of bounds for array",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="Check bounds or adjust index",
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="No bounds checking on index parameter",
+                line_start=2,
+                line_end=2,
+            ),
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": "function process(items) {\n    let result = [];\n    for (let i = 0; i <= items.length; i++) {\n        result.push(items[i] * 2);\n    }\n    return result;\n}\n\nconsole.log(process([1, 2, 3]));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Off-by-one error should use less than not less than or equal",
+                line_start=3,
+                line_end=3,
+                fix_suggestion="i <= items.length -> i < items.length",
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Will access undefined on last iteration causing NaN",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "py001": {
+        "language": Language.PYTHON,
+        "code": "def append_to(element, to=[]):\n    to.append(element)\n    return to\n\nprint(append_to(1))\nprint(append_to(2))\nprint(append_to(3))",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Mutable default argument causes state to persist across calls",
+                line_start=1,
+                line_end=1,
+                fix_suggestion="Use to=None and check inside function",
+            ),
+        ],
+    },
+    "py002": {
+        "language": Language.PYTHON,
+        "code": 'def check_value(x):\n    if x == True:\n        return "yes"\n    elif x == False:\n        return "no"\n    else:\n        return "unknown"\n\nprint(check_value(1))\nprint(check_value(0))',
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Using equality operator with boolean instead of identity operator",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="Use is True or if x pattern",
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Same issue on line 4",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": "function getFirstElement<T>(arr: T[]): T {\n    return arr[0];\n}\n\nconst nums: number[] = [];\nconsole.log(getFirstElement(nums));",
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="No null check returns undefined for empty array",
+                line_start=2,
+                line_end=2,
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Empty array passed without validation",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": 'const users = [\n    { name: "Alice", age: 25 },\n    { name: "Bob", age: 30 }\n];\n\nfunction findUser(name) {\n    for (let i = 0; i <= users.length; i++) {\n        if (users[i].name === name) {\n            return users[i];\n        }\n    }\n}\n\nconsole.log(findUser("Alice"));',
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Off-by-one in loop condition",
+                line_start=6,
+                line_end=6,
+                fix_suggestion="i <= users.length -> i < users.length",
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Will throw error when i equals users.length",
+                line_start=7,
+                line_end=7,
+            ),
+        ],
+    },
+    "py003": {
+        "language": Language.PYTHON,
+        "code": 'def multiply(a, b):\n    return a * b\n\nresult = multiply(10, "5")\nprint(result)',
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="No type checking multiplying int by string produces unexpected result",
+                line_start=3,
+                line_end=3,
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Result is 10 repeated 5 times instead of 50",
+                line_start=3,
+                line_end=3,
+            ),
+        ],
+    },
+    "ts002": {
+        "language": Language.TYPESCRIPT,
+        "code": 'interface Config {\n    host: string;\n    port: number;\n}\n\nfunction connect(config: Config) {\n    return `Connecting to ${config.host}:${config.port}`;\n}\n\nconnect({ host: "localhost" });',
+        "issues": [
+            Issue(
+                issue_type=IssueType.BUG,
+                description="Missing required property port",
+                line_start=9,
+                line_end=9,
+            ),
+            Issue(
+                issue_type=IssueType.BUG,
+                description="No validation for missing required field",
+                line_start=7,
+                line_end=7,
+            ),
+        ],
+    },
+}
+
+SECURITY_SNIPPETS = {
+    "py001": {
+        "language": Language.PYTHON,
+        "code": 'import sqlite3\n\ndef get_user(user_id):\n    conn = sqlite3.connect("app.db")\n    cursor = conn.cursor()\n    query = f"SELECT * FROM users WHERE id = {user_id}"\n    cursor.execute(query)\n    result = cursor.fetchone()\n    conn.close()\n    return result\n\nprint(get_user(1))',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="SQL injection vulnerability user input directly in query",
+                line_start=5,
+                line_end=5,
+                fix_suggestion="Use parameterized query with question mark placeholder",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No input sanitization on user_id parameter",
+                line_start=4,
+                line_end=4,
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No error handling for database operations",
+                line_start=4,
+                line_end=8,
+            ),
+        ],
+    },
+    "py002": {
+        "language": Language.PYTHON,
+        "code": 'import os\n\nAPI_KEY = "sk-1234567890abcdef"\n\ndef get_api_key():\n    return API_KEY\n\ndef call_api():\n    key = get_api_key()\n    print(f"Using API key: {key}")',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Hardcoded API key in source code",
+                line_start=3,
+                line_end=3,
+                fix_suggestion="Use environment variable or secrets manager",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="API key exposed in function output",
+                line_start=8,
+                line_end=8,
+            ),
+        ],
+    },
+    "js001": {
+        "language": Language.JAVASCRIPT,
+        "code": "function evaluateExpression(expr) {\n    return eval(expr);\n}\n\nconst userInput = \"alert('xss')\";\nevaluateExpression(userInput);",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Using eval with user input allows code injection",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="Avoid eval, use safe parser if needed",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No sanitization of userInput",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+    "py003": {
+        "language": Language.PYTHON,
+        "code": 'import pickle\n\ndef load_data(filename):\n    with open(filename, "rb") as f:\n        return pickle.load(f)\n\ndata = load_data("user_data.pkl")\nprint(data)',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Using pickle load with untrusted data allows arbitrary code execution",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="Use JSON or safe deserialization",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No validation of file source",
+                line_start=3,
+                line_end=3,
+            ),
+        ],
+    },
+    "js002": {
+        "language": Language.JAVASCRIPT,
+        "code": "const crypto = require('crypto');\n\nfunction generateToken() {\n    return Math.random().toString(36).substring(2);\n}\n\nconsole.log(generateToken());",
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Using Math.random for security token predictable",
+                line_start=4,
+                line_end=4,
+                fix_suggestion="Use crypto randomBytes",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Predictable random values can be guessed leading to vulnerabilities",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "ts001": {
+        "language": Language.TYPESCRIPT,
+        "code": 'function fetchUserData(userId: string) {\n    const url = `https://api.example.com/users/${userId}`;\n    return fetch(url).then(r => r.json());\n}\n\nfetchUserData("1 OR 1=1");',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No input validation or sanitization potential injection",
+                line_start=4,
+                line_end=4,
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Direct string interpolation in URL without validation",
+                line_start=2,
+                line_end=2,
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Example injection attack shown in line 5",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+    "py004": {
+        "language": Language.PYTHON,
+        "code": 'import subprocess\nimport sys\n\ndef run_command(cmd):\n    return subprocess.call(cmd, shell=True)\n\nrun_command("ls -la " + sys.argv[1])',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Shell injection vulnerability user input in shell True",
+                line_start=5,
+                line_end=5,
+                fix_suggestion="Use list args, not shell True",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="No validation of command arguments",
+                line_start=4,
+                line_end=4,
+            ),
+        ],
+    },
+    "js003": {
+        "language": Language.JAVASCRIPT,
+        "code": 'function htmlEscape(str) {\n    return str.replace(/</g, "&lt;").replace(/>/g, "&gt;");\n}\n\nconst userComment = "<script>alert(\'xss\')</script>";\ndocument.innerHTML = htmlEscape(userComment);',
+        "issues": [
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Incomplete HTML escaping missing quotes and other chars",
+                line_start=2,
+                line_end=2,
+                fix_suggestion="Use a proper library like DOMPurify",
+            ),
+            Issue(
+                issue_type=IssueType.SECURITY,
+                description="Directly setting innerHTML even with escaping is risky",
+                line_start=5,
+                line_end=5,
+            ),
+        ],
+    },
+}
+
+CODE_SNIPPETS = {
+    TaskName.STYLE_CHECK: STYLE_SNIPPETS,
+    TaskName.BUG_HUNT: BUG_SNIPPETS,
+    TaskName.FULL_REVIEW: SECURITY_SNIPPETS,
+}
+
+
+class MyEnvironment(Environment):
+    SUPPORTS_CONCURRENT_SESSIONS = True
+
+    MAX_STEPS = {
+        TaskName.STYLE_CHECK: 5,
+        TaskName.BUG_HUNT: 7,
+        TaskName.FULL_REVIEW: 10,
+    }
+
+    def __init__(self):
+        self._state = CodeReviewState()
+        self._task_name = TaskName.STYLE_CHECK
+        self._found_issues: List[FoundIssue] = []
+        self._initial_issue_count = 0
+
+    def reset(
+        self, seed=None, episode_id=None, task_name: str = "style_check", **kwargs
+    ) -> CodeReviewObservation:
+        self._task_name = TaskName(task_name)
+
+        snippets = CODE_SNIPPETS.get(self._task_name, STYLE_SNIPPETS)
+
+        snippet_ids = sorted(snippets.keys())
+        if seed is not None:
+            random.seed(seed)
+            idx = random.randint(0, len(snippet_ids) - 1)
+        else:
+            idx = 0
+
+        snippet_id = snippet_ids[idx]
+        snippet = snippets[snippet_id]
+
+        self._found_issues = []
+        self._initial_issue_count = len(snippet["issues"])
+
+        self._state = CodeReviewState(
+            episode_id=episode_id or str(uuid.uuid4()),
+            step_count=0,
+            target_snippet_id=snippet_id,
+            ground_truth_issues=list(snippet["issues"]),
+            current_score=0.0,
+            task_name=self._task_name,
+            language=snippet["language"],
+            code_snippet=snippet["code"],
+        )
+
+        return CodeReviewObservation(
+            done=False,
+            reward=None,
+            code_snippet=snippet["code"],
+            issues_found=[],
+            issues_remaining=self._initial_issue_count,
+            step_count=0,
+            message=f"Task: {self._task_name.value}. Find all issues in this {snippet['language'].value} code snippet.",
+            task_name=self._task_name,
+            language=snippet["language"],
+        )
+
+    def step(
+        self, action: CodeReviewAction, timeout_s=None, **kwargs
+    ) -> CodeReviewObservation:
+        self._state.step_count += 1
+
+        if action.description.lower() == "done":
+            return self._build_observation(
+                done=True, reward=0.0, message="Agent finished early"
+            )
+
+        for fi in self._found_issues:
+            if (
+                fi.line_number == action.line_number
+                and fi.issue_type == action.issue_type
+            ):
+                return self._build_observation(
+                    done=False,
+                    reward=0.0,
+                    message="Duplicate issue already reported",
+                )
+
+        match = self._match_issue(action)
+
+        found_issue = FoundIssue(
+            issue_type=action.issue_type,
+            description=action.description,
+            line_number=action.line_number,
+            fix_suggestion=action.fix_suggestion,
+            is_correct=match["matched"],
+        )
+
+        self._found_issues.append(found_issue)
+
+        if match["matched"]:
+            reward = self._calculate_reward(action, match)
+
+            self._state.ground_truth_issues = [
+                gt
+                for gt in self._state.ground_truth_issues
+                if not (
+                    gt.issue_type == action.issue_type
+                    and gt.line_start <= action.line_number <= gt.line_end
+                )
+            ]
+        else:
+            reward = 0.0
+
+        self._state.current_score = min(1.0, self._state.current_score + reward)
+
+        issues_remaining = len(self._state.ground_truth_issues)
+
+        done = (
+            issues_remaining == 0
+            or self._state.step_count >= self.MAX_STEPS[self._task_name]
+        )
+
+        return self._build_observation(done, reward, match["message"])
+
+    def _match_issue(self, action: CodeReviewAction) -> dict:
+        for gt in self._state.ground_truth_issues:
+            if gt.issue_type != action.issue_type:
+                continue
+
+            if not (gt.line_start <= action.line_number <= gt.line_end):
+                continue
+
+            if self._description_matches(gt.description, action.description):
+                return {
+                    "matched": True,
+                    "issue": gt,
+                    "message": f"Correct: {gt.description}",
+                }
+
+        return {
+            "matched": False,
+            "issue": None,
+            "message": "No matching issue found. Check line number and issue type.",
+        }
+
+    def _description_matches(self, gt: str, rep: str) -> bool:
+        gt_words = set(re.findall(r"\b\w+\b", gt.lower()))
+        rep_words = set(re.findall(r"\b\w+\b", rep.lower()))
+        return len(gt_words & rep_words) >= 2
+
+    def _calculate_reward(self, action: CodeReviewAction, match: dict) -> float:
+        issue_weight = 1.0 / self._initial_issue_count
+        matched_issue = match["issue"]
+
+        if self._task_name != TaskName.FULL_REVIEW:
+            return issue_weight
+
+        if matched_issue.fix_suggestion is None:
+            return issue_weight
+
+        if action.fix_suggestion is None:
+            return issue_weight * 0.5
+
+        if self._description_matches(
+            matched_issue.fix_suggestion, action.fix_suggestion
+        ):
+            return issue_weight
+
+        return issue_weight * 0.5
+
+    def _build_observation(
+        self, done: bool, reward: float, message: str
+    ) -> CodeReviewObservation:
+        return CodeReviewObservation(
+            done=done,
+            reward=reward,
+            code_snippet=self._state.code_snippet,
+            issues_found=self._found_issues.copy(),
+            issues_remaining=len(self._state.ground_truth_issues),
+            step_count=self._state.step_count,
+            message=message,
+            task_name=self._task_name,
+            language=self._state.language,
+        )
+
+    @property
+    def state(self) -> CodeReviewState:
+        return self._state
