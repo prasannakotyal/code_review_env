@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-review-env"
+version = "0.1.0"
+description = "Code Review RL Environment - Detect style, bug, and security issues"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core>=0.2.0",
+    "openai>=1.0.0",
+    "pydantic>=2.5.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+server = "code_review_env.server.app:main"
+
+[tool.setuptools]
+packages = ["code_review_env", "code_review_env.server"]
+package-dir = { "code_review_env" = ".", "code_review_env.server" = "server" }
