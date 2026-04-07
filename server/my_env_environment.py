@@ -3129,3 +3129,88 @@ class MyEnvironment(Environment):
     @property
     def state(self) -> CodeReviewState:
         return self._state
+
+
+def clamp_reward(reward: float) -> float:
+    """Clamp reward to (0.01, 0.99) to avoid validator rejection at boundaries."""
+    if reward <= 0.0:
+        return 0.01
+    elif reward >= 1.0:
+        return 0.99
+    return reward
+
+
+class StyleCheckGrader:
+    """Grader for style_check task - evaluates code style issue detection."""
+
+    def grade(self, observation: CodeReviewObservation) -> float:
+        """
+        Grade the agent's performance on style checking.
+        Returns a clamped score between 0.01 and 0.99.
+        """
+        if observation.issues_found is None or len(observation.issues_found) == 0:
+            return 0.01
+
+        correct_count = sum(1 for issue in observation.issues_found if issue.is_correct)
+        total_found = len(observation.issues_found)
+
+        if total_found == 0:
+            return 0.01
+
+        # Precision-based scoring
+        precision = correct_count / total_found
+        return clamp_reward(precision)
+
+
+class BugHuntGrader:
+    """Grader for bug_hunt task - evaluates bug detection accuracy."""
+
+    def grade(self, observation: CodeReviewObservation) -> float:
+        """
+        Grade the agent's performance on bug hunting.
+        Returns a clamped score between 0.01 and 0.99.
+        """
+        if observation.issues_found is None or len(observation.issues_found) == 0:
+            return 0.01
+
+        correct_count = sum(1 for issue in observation.issues_found if issue.is_correct)
+        total_found = len(observation.issues_found)
+
+        if total_found == 0:
+            return 0.01
+
+        # Precision-based scoring with slight bonus for finding more bugs
+        precision = correct_count / total_found
+        recall_bonus = min(0.1, correct_count * 0.02)
+
+        return clamp_reward(precision + recall_bonus)
+
+
+class FullReviewGrader:
+    """Grader for full_review task - evaluates security issue detection and fix suggestions."""
+
+    def grade(self, observation: CodeReviewObservation) -> float:
+        """
+        Grade the agent's performance on full code review (security focus).
+        Returns a clamped score between 0.01 and 0.99.
+        """
+        if observation.issues_found is None or len(observation.issues_found) == 0:
+            return 0.01
+
+        correct_count = sum(1 for issue in observation.issues_found if issue.is_correct)
+        fix_count = sum(
+            1
+            for issue in observation.issues_found
+            if issue.is_correct and issue.fix_suggestion is not None
+        )
+        total_found = len(observation.issues_found)
+
+        if total_found == 0:
+            return 0.01
+
+        # Combined scoring: 50% precision, 50% fix quality
+        precision = correct_count / total_found
+        fix_quality = fix_count / max(1, correct_count) if correct_count > 0 else 0.0
+
+        combined_score = (precision * 0.5) + (fix_quality * 0.5)
+        return clamp_reward(combined_score)

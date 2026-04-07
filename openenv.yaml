@@ -8,18 +8,24 @@ repository: https://github.com/prasannakotyal/code_review_env
 python_version: "3.11"
 
 tasks:
-  - name: style_check
+  - id: style_check
+    name: style_check
     description: Identify code style violations (naming, formatting, conventions)
     difficulty: easy
     max_steps: 5
-  - name: bug_hunt
+    grader: server.my_env_environment:StyleCheckGrader
+  - id: bug_hunt
+    name: bug_hunt
     description: Find functional bugs and logic errors in code
     difficulty: medium
     max_steps: 7
-  - name: full_review
+    grader: server.my_env_environment:BugHuntGrader
+  - id: full_review
+    name: full_review
     description: Identify issues and provide correct fixes for security/correctness problems
     difficulty: hard
     max_steps: 10
+    grader: server.my_env_environment:FullReviewGrader
 
 observation:
   code_snippet: string
@@ -38,18 +44,18 @@ action:
 
 reward:
   range:
-    min: 0.0
-    max: 1.0
+    min: 0.01
+    max: 0.99
   style_check:
     correct_issue: 0.33
-    false_positive: 0.0
+    false_positive: 0.01
   bug_hunt:
     correct_issue: 0.5
-    false_positive: 0.0
+    false_positive: 0.01
   full_review:
     correct_issue: 0.5
-    correct_fix: 0.5
-    false_positive: 0.0
+    correct_fix: 0.49
+    false_positive: 0.01
 
 tags:
   - code-review

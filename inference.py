@@ -183,6 +183,15 @@ def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
+def clamp_reward(reward: float) -> float:
+    """Clamp reward to (0.01, 0.99) to avoid validator rejection at boundaries."""
+    if reward <= 0.0:
+        return 0.01
+    elif reward >= 1.0:
+        return 0.99
+    return reward
+
+
 def log_step(
     step: int,
     action: str,
@@ -192,16 +201,21 @@ def log_step(
 ) -> None:
     error_value = error if error else "null"
     done_value = str(done).lower()
+    # Clamp reward for display
+    clamped_reward = clamp_reward(reward)
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_value} error={error_value}",
+        f"[STEP] step={step} action={action} reward={clamped_reward:.2f} done={done_value} error={error_value}",
         flush=True,
     )
 
 
 def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
-    rewards_value = ",".join(f"{reward:.2f}" for reward in rewards)
+    # Clamp score and rewards to (0.01, 0.99) for validator
+    clamped_score = min(max(score, 0.01), 0.99)
+    clamped_rewards = [clamp_reward(r) for r in rewards]
+    rewards_value = ",".join(f"{r:.2f}" for r in clamped_rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_value}",
+        f"[END] success={str(success).lower()} steps={steps} score={clamped_score:.2f} rewards={rewards_value}",
         flush=True,
     )
 
@@ -382,6 +396,8 @@ async def main() -> None:
             observation = result.observation
 
             reward = float(result.reward or 0.0)
+            # Clamp reward to avoid boundary values
+            reward = clamp_reward(reward)
             rewards.append(reward)
             steps_taken = step
 
@@ -397,14 +413,14 @@ async def main() -> None:
                 break
 
         success = observation is not None and observation.issues_remaining == 0
-        # Calculate normalized score (sum of rewards, clamped to 0.0-1.0)
-        score = sum(rewards) if rewards else 0.0
-        score = min(max(score, 0.0), 1.0)
+        # Calculate normalized score, clamped to (0.01, 0.99) for validator
+        score = sum(rewards) if rewards else 0.01
+        score = min(max(score, 0.01), 0.99)
 
     except Exception:
         should_exit_with_error = True
         success = False
-        score = 0.0
+        score = 0.01  # Use 0.01 instead of 0.0 for validator
 
     finally:
         try:
