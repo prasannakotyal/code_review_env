@@ -1,14 +1,15 @@
 import pytest
 
+from models import (
+    CodeReviewAction,
+    CodeReviewObservation,
+    CodeReviewState,
+    IssueType,
+)
+from server.my_env_environment import MyEnvironment
+
 
 def test_imports():
-    from my_env.models import (
-        CodeReviewAction,
-        CodeReviewObservation,
-        CodeReviewState,
-    )
-    from my_env.server.my_env_environment import MyEnvironment
-
     assert CodeReviewAction is not None
     assert CodeReviewObservation is not None
     assert CodeReviewState is not None
@@ -16,15 +17,11 @@ def test_imports():
 
 
 def test_environment_creation():
-    from my_env.server.my_env_environment import MyEnvironment
-
     env = MyEnvironment()
     assert env is not None
 
 
 def test_environment_reset():
-    from my_env.server.my_env_environment import MyEnvironment
-
     env = MyEnvironment()
     obs = env.reset(task_name="style_check")
 
@@ -35,9 +32,6 @@ def test_environment_reset():
 
 
 def test_environment_step():
-    from my_env.models import CodeReviewAction, IssueType
-    from my_env.server.my_env_environment import MyEnvironment
-
     env = MyEnvironment()
     obs = env.reset(task_name="style_check")
 
@@ -55,9 +49,6 @@ def test_environment_step():
 
 
 def test_rewards_stay_in_normalized_range():
-    from my_env.models import CodeReviewAction, IssueType
-    from my_env.server.my_env_environment import MyEnvironment
-
     env = MyEnvironment()
     env.reset(task_name="style_check")
 

@@ -1,4 +1,4 @@
-from my_env.inference import log_end, log_start, log_step
+from inference import log_end, log_start, log_step
 
 
 def test_log_start_format(capsys):
@@ -26,9 +26,8 @@ def test_log_step_format(capsys):
 
 
 def test_log_end_format(capsys):
-    log_end(success=True, steps=3, score=1.000, rewards=[0.33, 0.33, 0.34])
+    log_end(success=True, steps=3, score=0.99, rewards=[0.33, 0.33, 0.34])
     captured = capsys.readouterr()
     assert (
-        captured.out
-        == "[END] success=true steps=3 score=1.000 rewards=0.33,0.33,0.34\n"
+        captured.out == "[END] success=true steps=3 score=0.99 rewards=0.33,0.33,0.34\n"
     )

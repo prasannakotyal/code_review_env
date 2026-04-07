@@ -39,14 +39,14 @@ AI AGENT
   |
   | obs = env.reset(task_name="style_check")  # Get code to review
   | result = env.step(review_action)          # Submit review
-  | print(result.reward)                      # See score (0.0 - 1.0)
+  | print(result.reward)                      # See score (0.01 - 0.99)
   |
   v
 CODE REVIEW ENVIRONMENT (Running on Hugging Face)
   |
   | 1. Gives agent a real buggy code snippet
   | 2. Agent reviews it and submits findings
-  | 3. Grader scores the review (0.0 - 1.0)
+  | 3. Grader scores the review (0.01 - 0.99)
   | 4. Agent receives reward and learns
   |
   v
@@ -118,7 +118,7 @@ Issues to find: SQL injection, XSS, hardcoded secrets, path traversal
 | Wrong issue (false positive) | 0.0 |
 | Duplicate issue | 0.0 |
 
-Total reward is normalized to 0.0 - 1.0 range.
+Total reward is normalized to 0.01 - 0.99 range.
 
 ---
 
@@ -245,9 +245,9 @@ code_review_env/
 
 | Task | Model | Reward | Steps |
 |------|-------|--------|-------|
-| style_check | Qwen2.5-Coder-32B | 1.00 | 1 |
-| bug_hunt | Qwen2.5-Coder-32B | 1.00 | 1 |
-| full_review | Qwen2.5-Coder-32B | 1.00 | 1 |
+| style_check | Qwen2.5-Coder-32B | 0.99 | 1 |
+| bug_hunt | Qwen2.5-Coder-32B | 0.99 | 1 |
+| full_review | Qwen2.5-Coder-32B | 0.99 | 1 |
 
 ---
 

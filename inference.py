@@ -23,9 +23,9 @@ from typing import Optional
 
 from openai import OpenAI
 
-from my_env import MyEnv
-from my_env import CodeReviewAction, IssueType, TaskName
-from my_env.server.my_env_environment import CODE_SNIPPETS
+from client import MyEnv
+from models import CodeReviewAction, IssueType, TaskName
+from server.my_env_environment import CODE_SNIPPETS
 
 
 # =============================================================================
