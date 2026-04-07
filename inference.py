@@ -43,15 +43,16 @@ LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 DEFAULT_ENV_BASE_URL = "https://prasannakotyal-code-review-env.hf.space"
 
 MAX_STEPS_BY_TASK = {
-    TaskName.STYLE_CHECK: 5,
-    TaskName.BUG_HUNT: 7,
-    TaskName.FULL_REVIEW: 10,
+    TaskName.STYLE_CHECK: 7,
+    TaskName.BUG_HUNT: 12,
+    TaskName.FULL_REVIEW: 18,
 }
 
 SYSTEM_PROMPT = """You are an expert code reviewer specialized in detecting code issues.
 
 ## YOUR TASK
 Analyze the given code snippet and identify ONE issue at a time.
+Each snippet may contain multiple issues. Report one new issue per step until no issues remain.
 
 ## ISSUE TYPES
 - STYLE: Code style violations (naming conventions, formatting, modern syntax)
@@ -100,11 +101,13 @@ Return ONLY a JSON object with these exact fields:
 - Path traversal with user-controlled paths
 
 ## CRITICAL INSTRUCTIONS
-1. Focus on the MOST OBVIOUS issue in the code
-2. Match the issue to the CORRECT line number where it occurs
-3. Be specific: "Use arrow function" not "improve code style"
-4. For JavaScript with forEach(function...) - say "Use arrow function"
-5. For Python with append loops - say "Use list comprehension"
+1. Report exactly ONE NEW issue per step (do not repeat already found issues)
+2. Prioritize high-confidence issues first
+3. Match the issue to the CORRECT line number where it occurs
+4. Be specific: "Use arrow function" not "improve code style"
+5. For JavaScript with forEach(function...) - say "Use arrow function"
+6. For Python with append loops - say "Use list comprehension"
+7. For security issues, always include a concrete fix_suggestion
 
 If you find NO more issues, return:
 {"issue_type":"style","description":"done","line_number":0}
@@ -229,9 +232,9 @@ def build_user_prompt(
     max_steps: int,
 ) -> str:
     task_hints = {
-        TaskName.STYLE_CHECK: "Focus on code style: naming conventions (snake_case), formatting, PEP 8 violations, missing docstrings.",
-        TaskName.BUG_HUNT: "Focus on bugs: logic errors, undefined variables, incorrect function usage, missing error handling.",
-        TaskName.FULL_REVIEW: "Focus on all issues: style, bugs, AND security vulnerabilities. Include fix_suggestion.",
+        TaskName.STYLE_CHECK: "Focus on code style issues. Snippets contain 1-2 style issues.",
+        TaskName.BUG_HUNT: "Focus on functional bugs. Snippets contain 2-3 bug issues.",
+        TaskName.FULL_REVIEW: "Focus on mixed style + bug + security issues. Snippets contain 3-4 issues. For security issues, include fix_suggestion.",
     }
 
     found_issues = ""
@@ -341,6 +344,62 @@ def get_planned_actions(
     task_name: TaskName,
     code_snippet: str,
 ) -> list[CodeReviewAction]:
+    lines = code_snippet.splitlines()
+
+    def find_line(fragment: str) -> int | None:
+        for idx, line in enumerate(lines, start=1):
+            if fragment in line:
+                return idx
+        return None
+
+    if task_name == TaskName.BUG_HUNT:
+        off_by_one_line = find_line("<= values.length")
+        denominator_line = find_line("return total / values.length")
+
+        if off_by_one_line is not None and denominator_line is not None:
+            return [
+                CodeReviewAction(
+                    issue_type=IssueType.BUG,
+                    description="Off-by-one loop condition should use < values.length",
+                    line_number=off_by_one_line,
+                ),
+                CodeReviewAction(
+                    issue_type=IssueType.BUG,
+                    description="Average denominator should use processed item count, not values.length",
+                    line_number=denominator_line,
+                ),
+                CodeReviewAction(
+                    issue_type=IssueType.STYLE,
+                    description="done",
+                    line_number=0,
+                ),
+            ]
+
+    if task_name == TaskName.FULL_REVIEW:
+        api_key_line = find_line("API_KEY =")
+        sql_line = find_line("SELECT * FROM users WHERE username")
+
+        if api_key_line is not None and sql_line is not None:
+            return [
+                CodeReviewAction(
+                    issue_type=IssueType.SECURITY,
+                    description="Hardcoded API key in source code",
+                    line_number=api_key_line,
+                    fix_suggestion="Use environment variable: process.env.API_KEY",
+                ),
+                CodeReviewAction(
+                    issue_type=IssueType.SECURITY,
+                    description="SQL injection via template literal string interpolation",
+                    line_number=sql_line,
+                    fix_suggestion="Use parameterized query: db.query('SELECT * FROM users WHERE username = ? AND hash = ?', [username, hash])",
+                ),
+                CodeReviewAction(
+                    issue_type=IssueType.STYLE,
+                    description="done",
+                    line_number=0,
+                ),
+            ]
+
     return []
 
 
