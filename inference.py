@@ -28,8 +28,18 @@ from my_env import CodeReviewAction, IssueType, TaskName
 from my_env.server.my_env_environment import CODE_SNIPPETS
 
 
-DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
-DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
+# =============================================================================
+# Required environment variables (per OpenEnv submission checklist)
+# =============================================================================
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Coder-32B-Instruct")
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+# Optional - if you use from_docker_image():
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+# =============================================================================
+
+
 DEFAULT_ENV_BASE_URL = "https://prasannakotyal-code-review-env.hf.space"
 
 MAX_STEPS_BY_TASK = {
@@ -143,47 +153,23 @@ def load_env_files() -> None:
         os.environ.setdefault(key, value)
 
 
-def read_cached_hf_token() -> Optional[str]:
-    """Read token from HF cache as last resort fallback."""
-    for token_path in [
-        Path.home() / ".cache" / "huggingface" / "token",
-        Path.home() / ".cache" / "hugging_face" / "token",
-    ]:
-        if token_path.exists():
-            token = token_path.read_text().strip()
-            if token:
-                return token
-    return None
-
-
 def load_config() -> InferenceConfig:
     load_env_files()
 
-    api_key = (
-        os.getenv("HF_TOKEN")
-        or os.getenv("API_KEY")
-        or os.getenv("OPENAI_API_KEY")
-        or ""
-    )
+    # Use module-level HF_TOKEN (no fallbacks per checklist requirements)
+    api_key = HF_TOKEN or ""
 
     if not api_key:
-        cached = read_cached_hf_token()
-        if cached:
-            api_key = cached
-        else:
-            print(
-                "WARNING: No API key found. Set HF_TOKEN, API_KEY, or OPENAI_API_KEY environment variable."
-            )
-            print("You can get a token from: https://huggingface.co/settings/tokens")
-            api_key = ""
+        print("WARNING: HF_TOKEN environment variable is not set.")
+        print("You can get a token from: https://huggingface.co/settings/tokens")
 
     task_name = TaskName(os.getenv("MY_ENV_TASK", TaskName.STYLE_CHECK.value))
     max_steps = int(os.getenv("MAX_STEPS", MAX_STEPS_BY_TASK[task_name]))
 
     return InferenceConfig(
-        api_base_url=os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL),
+        api_base_url=API_BASE_URL,
         api_key=api_key,
-        model_name=os.getenv("MODEL_NAME", DEFAULT_MODEL_NAME),
+        model_name=MODEL_NAME,
         env_base_url=os.getenv("ENV_BASE_URL", DEFAULT_ENV_BASE_URL),
         task_name=task_name,
         benchmark=os.getenv("MY_ENV_BENCHMARK", "my_env"),
@@ -364,9 +350,7 @@ async def main() -> None:
 
     try:
         if not config.api_key:
-            raise RuntimeError(
-                "HF_TOKEN is not set and no cached Hugging Face token was found"
-            )
+            raise RuntimeError("HF_TOKEN environment variable is not set")
 
         await env.connect()
         result = await env.reset(task_name=config.task_name.value)
