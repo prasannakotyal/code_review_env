@@ -150,10 +150,24 @@ def load_env_files() -> None:
             if separator != "=":
                 continue
 
+            if key.strip() == "MY_ENV_TASK":
+                continue
+
             file_values[key.strip()] = value.strip().strip('"').strip("'")
 
     for key, value in file_values.items():
         os.environ.setdefault(key, value)
+
+
+def _resolve_task_override() -> Optional[TaskName]:
+    raw_task = os.getenv("MY_ENV_TASK", "").strip()
+    if not raw_task:
+        return None
+
+    try:
+        return TaskName(raw_task)
+    except ValueError:
+        return None
 
 
 def load_config() -> InferenceConfig:
@@ -165,7 +179,8 @@ def load_config() -> InferenceConfig:
         print("WARNING: HF_TOKEN environment variable is not set.")
         print("You can get a token from: https://huggingface.co/settings/tokens")
 
-    task_name = TaskName(os.getenv("MY_ENV_TASK", TaskName.STYLE_CHECK.value))
+    task_override = _resolve_task_override()
+    task_name = task_override or TaskName.STYLE_CHECK
     max_steps = int(os.getenv("MAX_STEPS", MAX_STEPS_BY_TASK[task_name]))
 
     return InferenceConfig(
@@ -507,9 +522,9 @@ async def main() -> None:
     client = OpenAI(base_url=config.api_base_url, api_key=config.api_key)
     env = MyEnv(base_url=config.env_base_url)
 
-    task_override = os.getenv("MY_ENV_TASK")
-    if task_override:
-        task_names = [TaskName(task_override)]
+    task_override = _resolve_task_override()
+    if task_override is not None:
+        task_names = [task_override]
     else:
         task_names = [
             TaskName.STYLE_CHECK,
