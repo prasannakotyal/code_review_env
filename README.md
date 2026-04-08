@@ -55,7 +55,7 @@ Dataset summary:
 
 ## Motivation
 
-Modern code review agents need to do more than detect single isolated mistakes. They must reason over mixed issue types, prioritize findings, and iterate through a review session with precise evidence. This environment is designed to evaluate that behavior directly.
+This environment evaluates iterative code-review behavior where an agent reports one issue at a time and receives stepwise feedback.
 
 The benchmark emphasizes:
 - iterative issue discovery instead of one-shot classification
@@ -63,10 +63,6 @@ The benchmark emphasizes:
 - difficulty progression from style checks to mixed security-sensitive review
 
 ## How It Works
-
-### System architecture
-
-![System architecture](docs/diagrams/system-architecture.svg)
 
 ### Episode lifecycle
 
@@ -177,6 +173,10 @@ Credential handling:
 - use `HF_TOKEN` for local testing when `API_KEY` is not available
 - do not store credentials in source control
 
+Task execution behavior:
+- default run mode executes `style_check`, `bug_hunt`, and `full_review` sequentially
+- set `MY_ENV_TASK` only when a single-task local run is needed
+
 ## API
 
 | Endpoint | Method | Description |
@@ -210,6 +210,15 @@ docker build -t code-review-env:latest .
 - hosted endpoint availability (`/reset`)
 - Docker image build
 - OpenEnv compatibility validation
+
+## Documentation Checklist Mapping
+
+This README includes the organizer-requested documentation items:
+- environment description and motivation: `Overview`, `Motivation`
+- action and observation space definitions: `Spaces`
+- task descriptions with expected difficulty: `Task Definition`
+- setup and usage instructions: `Quick Start`, `Configuration`, `API`
+- baseline scores: `Baseline Measurements`
 
 ## Baseline Measurements
 
