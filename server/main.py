@@ -10,14 +10,14 @@ try:
 except ImportError:
     from ..models import CodeReviewAction, CodeReviewObservation
 
-from .environment import CodeReviewEnvironment
+from .my_env_environment import MyEnvironment
 
 os.environ.setdefault("ENABLE_WEB_INTERFACE", "true")
 
 
 app = create_app(
-    CodeReviewEnvironment,
+    MyEnvironment,
     CodeReviewAction,
     CodeReviewObservation,
-    env_name="code_review",
+    env_name="my_env",
 )
