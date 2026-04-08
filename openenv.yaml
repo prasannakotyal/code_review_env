@@ -6,6 +6,10 @@ author: prasannakotyal
 license: MIT
 repository: https://github.com/prasannakotyal/code_review_env
 python_version: "3.11"
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
 
 tasks:
   - id: style_check
