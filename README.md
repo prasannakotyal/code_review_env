@@ -4,7 +4,7 @@ colorFrom: blue
 colorTo: green
 sdk: docker
 app_port: 8000
-base_path: /docs
+base_path: /web
 models:
   - Qwen/Qwen2.5-Coder-32B-Instruct
 tags:
