@@ -152,6 +152,8 @@ MY_ENV_TASK=bug_hunt uv run python inference.py
 MY_ENV_TASK=full_review uv run python inference.py
 ```
 
+Default behavior (when `MY_ENV_TASK` is unset) runs all three tasks sequentially.
+
 ## Configuration
 
 Environment variables:
@@ -210,15 +212,6 @@ docker build -t code-review-env:latest .
 - hosted endpoint availability (`/reset`)
 - Docker image build
 - OpenEnv compatibility validation
-
-## Documentation Checklist Mapping
-
-This README includes the organizer-requested documentation items:
-- environment description and motivation: `Overview`, `Motivation`
-- action and observation space definitions: `Spaces`
-- task descriptions with expected difficulty: `Task Definition`
-- setup and usage instructions: `Quick Start`, `Configuration`, `API`
-- baseline scores: `Baseline Measurements`
 
 ## Baseline Measurements
 
