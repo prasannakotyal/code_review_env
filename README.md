@@ -29,6 +29,9 @@ OpenEnv-compatible reinforcement learning environment for iterative code review 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Motivation](#motivation)
+- [How It Works](#how-it-works)
+- [Spaces](#spaces)
 - [Task Definition](#task-definition)
 - [Reward and Grading](#reward-and-grading)
 - [Quick Start](#quick-start)
@@ -49,6 +52,50 @@ Dataset summary:
 - 24 snippets per task
 - languages: Python, JavaScript, TypeScript
 - issue classes: `style`, `bug`, `security`
+
+## Motivation
+
+Modern code review agents need to do more than detect single isolated mistakes. They must reason over mixed issue types, prioritize findings, and iterate through a review session with precise evidence. This environment is designed to evaluate that behavior directly.
+
+The benchmark emphasizes:
+- iterative issue discovery instead of one-shot classification
+- multi-language consistency across Python, JavaScript, and TypeScript
+- difficulty progression from style checks to mixed security-sensitive review
+
+## How It Works
+
+### System architecture
+
+![System architecture](docs/diagrams/system-architecture.svg)
+
+### Episode lifecycle
+
+![Episode lifecycle](docs/diagrams/episode-lifecycle.svg)
+
+## Spaces
+
+### Observation Space
+
+| Field | Type | Description |
+|------|------|-------------|
+| `done` | `boolean` | Whether the current episode has terminated |
+| `reward` | `float \| null` | Reward from the most recent step |
+| `code_snippet` | `string` | Active snippet presented to the agent |
+| `issues_found` | `array` | Reported issues with correctness tracking |
+| `issues_remaining` | `integer` | Ground-truth issues still unresolved |
+| `step_count` | `integer` | Current step index in the episode |
+| `message` | `string` | Environment feedback for the last action |
+| `task_name` | `enum` | `style_check`, `bug_hunt`, or `full_review` |
+| `language` | `enum` | `python`, `javascript`, or `typescript` |
+
+### Action Space
+
+| Field | Type | Description |
+|------|------|-------------|
+| `issue_type` | `enum` | `style`, `bug`, or `security` |
+| `description` | `string` | Specific issue explanation |
+| `line_number` | `integer` | Line index for the reported issue |
+| `fix_suggestion` | `string \| null` | Optional for style/bug; required for hard-task security quality |
 
 ## Task Definition
 
@@ -71,6 +118,11 @@ Step reward behavior:
 - hard task: fix quality applied on matched security findings
 
 Grader outputs are clamped to `(0.01, 0.99)`.
+
+Episode semantics:
+- one issue report is processed per step
+- episodes terminate when the agent reports `done`, all issues are resolved, or `max_steps` is reached
+- final score is aggregated from step rewards and clamped to `(0.01, 0.99)`
 
 ## Quick Start
 
@@ -110,17 +162,19 @@ Environment variables:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `HF_TOKEN` | Yes | - | Hugging Face API token |
+| `API_KEY` | Preferred | - | Validator-injected LiteLLM proxy key |
+| `HF_TOKEN` | Fallback | - | Local API key for manual runs |
 | `API_BASE_URL` | No | `https://router.huggingface.co/v1` | LLM API base URL |
 | `MODEL_NAME` | No | `Qwen/Qwen2.5-Coder-32B-Instruct` | Model identifier |
 | `ENV_BASE_URL` | No | hosted Space URL | OpenEnv server URL |
-| `MY_ENV_TASK` | No | `style_check` | Active task |
+| `MY_ENV_TASK` | Optional override | unset | Run a single task; when unset, all tasks run |
 | `MY_ENV_BENCHMARK` | No | `my_env` | Benchmark tag |
 | `TEMPERATURE` | No | `0.0` | Sampling temperature |
 | `MAX_TOKENS` | No | `300` | Generation cap |
 
 Credential handling:
-- keep `HF_TOKEN` in local environment configuration or CI secret storage
+- use `API_KEY` in validator/CI environments
+- use `HF_TOKEN` for local testing when `API_KEY` is not available
 - do not store credentials in source control
 
 ## API
@@ -168,6 +222,8 @@ Current measured baseline:
 | `style_check` | 0.91 | 3 |
 | `bug_hunt` | 0.68 | 3 |
 | `full_review` | 0.51 | 3 |
+
+![Baseline profile](docs/diagrams/baseline-profile.svg)
 
 Target calibration window:
 - `style_check`: `0.90-0.95`
