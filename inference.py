@@ -27,7 +27,6 @@ from openai import OpenAI
 
 from client import MyEnv
 from models import CodeReviewAction, IssueType, TaskName
-from server.my_env_environment import CODE_SNIPPETS
 
 
 # =============================================================================
@@ -355,111 +354,6 @@ def format_action(action: CodeReviewAction) -> str:
     return f"{action.issue_type.value}@{action.line_number}@{description}"
 
 
-def get_planned_actions(
-    task_name: TaskName,
-    code_snippet: str,
-) -> list[CodeReviewAction]:
-    lines = code_snippet.splitlines()
-
-    def find_line(fragment: str) -> int | None:
-        for idx, line in enumerate(lines, start=1):
-            if fragment in line:
-                return idx
-        return None
-
-    if task_name == TaskName.STYLE_CHECK:
-        const_line = find_line("var ")
-        template_line = find_line(' + " (" + ')
-
-        if const_line is not None and template_line is not None:
-            return [
-                CodeReviewAction(
-                    issue_type=IssueType.STYLE,
-                    description="Use const instead of var",
-                    line_number=const_line,
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.STYLE,
-                    description="Use template literal instead of string concatenation",
-                    line_number=template_line,
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.STYLE,
-                    description="done",
-                    line_number=0,
-                ),
-            ]
-
-    if task_name == TaskName.BUG_HUNT:
-        off_by_one_line = find_line("<= values.length")
-        denominator_line = find_line("return total / values.length")
-
-        if off_by_one_line is not None and denominator_line is not None:
-            return [
-                CodeReviewAction(
-                    issue_type=IssueType.BUG,
-                    description="Off-by-one loop condition should use < values.length",
-                    line_number=off_by_one_line,
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.BUG,
-                    description="Average denominator should use processed item count, not values.length",
-                    line_number=denominator_line,
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.STYLE,
-                    description="done",
-                    line_number=0,
-                ),
-            ]
-
-    if task_name == TaskName.FULL_REVIEW:
-        api_key_line = find_line("API_KEY =")
-        sql_line = find_line("SELECT * FROM users WHERE username")
-
-        if api_key_line is not None and sql_line is not None:
-            return [
-                CodeReviewAction(
-                    issue_type=IssueType.SECURITY,
-                    description="Hardcoded API key in source code",
-                    line_number=api_key_line,
-                    fix_suggestion="Use environment variable: process.env.API_KEY",
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.SECURITY,
-                    description="SQL injection via template literal string interpolation",
-                    line_number=sql_line,
-                    fix_suggestion="Use parameterized query: db.query('SELECT * FROM users WHERE username = ? AND hash = ?', [username, hash])",
-                ),
-                CodeReviewAction(
-                    issue_type=IssueType.STYLE,
-                    description="done",
-                    line_number=0,
-                ),
-            ]
-
-    return []
-
-
-def ensure_proxy_call(client: OpenAI, config: InferenceConfig) -> None:
-    client.chat.completions.create(
-        model=config.model_name,
-        messages=[
-            {
-                "role": "system",
-                "content": "Reply with the single word ready.",
-            },
-            {
-                "role": "user",
-                "content": "ready",
-            },
-        ],
-        temperature=0.0,
-        max_tokens=4,
-        stream=False,
-    )
-
-
 async def run_task(
     client: OpenAI,
     env: MyEnv,
@@ -484,26 +378,19 @@ async def run_task(
 
         result = await env.reset(task_name=config.task_name.value)
         observation = result.observation
-        planned_actions = get_planned_actions(
-            task_name=config.task_name,
-            code_snippet=observation.code_snippet,
-        )
 
         for step in range(1, config.max_steps + 1):
             if result.done:
                 break
 
-            if step - 1 < len(planned_actions):
-                action = planned_actions[step - 1]
-            else:
-                action = get_model_action(
-                    client=client,
-                    config=config,
-                    code_snippet=observation.code_snippet,
-                    issues_found=observation.issues_found,
-                    issues_remaining=observation.issues_remaining,
-                    step=step,
-                )
+            action = get_model_action(
+                client=client,
+                config=config,
+                code_snippet=observation.code_snippet,
+                issues_found=observation.issues_found,
+                issues_remaining=observation.issues_remaining,
+                step=step,
+            )
 
             result = await env.step(action)
             observation = result.observation
@@ -553,8 +440,6 @@ async def main() -> None:
         ]
 
     should_exit_with_error = False
-
-    ensure_proxy_call(client=client, config=config)
 
     await env.connect()
     try:

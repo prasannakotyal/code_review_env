@@ -1,12 +1,4 @@
-from inference import (
-    InferenceConfig,
-    ensure_proxy_call,
-    load_config,
-    log_end,
-    log_start,
-    log_step,
-)
-from models import TaskName
+from inference import load_config, log_end, log_start, log_step
 
 
 def test_log_start_format(capsys):
@@ -55,36 +47,11 @@ def test_load_config_prefers_api_key(monkeypatch):
     assert config.model_name == "test-model"
 
 
-def test_ensure_proxy_call_uses_client_completion_api():
-    calls = []
+def test_load_config_falls_back_to_hf_token(monkeypatch):
+    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.setenv("HF_TOKEN", "local-key")
+    monkeypatch.delenv("MY_ENV_TASK", raising=False)
 
-    class DummyCompletions:
-        def create(self, **kwargs):
-            calls.append(kwargs)
-            return object()
+    config = load_config()
 
-    class DummyChat:
-        def __init__(self):
-            self.completions = DummyCompletions()
-
-    class DummyClient:
-        def __init__(self):
-            self.chat = DummyChat()
-
-    config = InferenceConfig(
-        api_base_url="https://proxy.example/v1",
-        api_key="validator-key",
-        model_name="test-model",
-        env_base_url="https://env.example",
-        task_name=TaskName.STYLE_CHECK,
-        benchmark="my_env",
-        max_steps=7,
-        temperature=0.0,
-        max_tokens=300,
-    )
-
-    ensure_proxy_call(client=DummyClient(), config=config)
-
-    assert len(calls) == 1
-    assert calls[0]["model"] == "test-model"
-    assert calls[0]["max_tokens"] == 4
+    assert config.api_key == "local-key"
