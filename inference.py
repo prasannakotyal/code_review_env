@@ -6,7 +6,9 @@ MANDATORY
 - Before submitting, ensure the following variables are defined in your environment configuration:
     API_BASE_URL   The API endpoint for the LLM.
     MODEL_NAME     The model identifier to use for inference.
-    HF_TOKEN       Your Hugging Face / API key.
+    API_KEY        Validator-injected LiteLLM proxy key.
+
+- For local testing, HF_TOKEN can be used as a fallback API key.
 
 - Defaults are set only for API_BASE_URL and MODEL_NAME.
 - The inference script must be named `inference.py` and placed in the root directory of the project.
@@ -31,9 +33,8 @@ from server.my_env_environment import CODE_SNIPPETS
 # =============================================================================
 # Required environment variables (per OpenEnv submission checklist)
 # =============================================================================
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Coder-32B-Instruct")
-HF_TOKEN = os.getenv("HF_TOKEN")
+DEFAULT_API_BASE_URL = "https://router.huggingface.co/v1"
+DEFAULT_MODEL_NAME = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
 # Optional - if you use from_docker_image():
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
@@ -173,20 +174,20 @@ def _resolve_task_override() -> Optional[TaskName]:
 def load_config() -> InferenceConfig:
     load_env_files()
 
-    api_key = os.getenv("HF_TOKEN", "")
+    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or ""
 
     if not api_key:
-        print("WARNING: HF_TOKEN environment variable is not set.")
-        print("You can get a token from: https://huggingface.co/settings/tokens")
+        print("WARNING: API_KEY or HF_TOKEN environment variable is not set.")
+        print("Use API_KEY for validator runs or HF_TOKEN for local testing.")
 
     task_override = _resolve_task_override()
     task_name = task_override or TaskName.STYLE_CHECK
     max_steps = int(os.getenv("MAX_STEPS", MAX_STEPS_BY_TASK[task_name]))
 
     return InferenceConfig(
-        api_base_url=API_BASE_URL,
+        api_base_url=os.getenv("API_BASE_URL", DEFAULT_API_BASE_URL),
         api_key=api_key,
-        model_name=MODEL_NAME,
+        model_name=os.getenv("MODEL_NAME", DEFAULT_MODEL_NAME),
         env_base_url=os.getenv("ENV_BASE_URL", DEFAULT_ENV_BASE_URL),
         task_name=task_name,
         benchmark=os.getenv("MY_ENV_BENCHMARK", "my_env"),
@@ -440,6 +441,25 @@ def get_planned_actions(
     return []
 
 
+def ensure_proxy_call(client: OpenAI, config: InferenceConfig) -> None:
+    client.chat.completions.create(
+        model=config.model_name,
+        messages=[
+            {
+                "role": "system",
+                "content": "Reply with the single word ready.",
+            },
+            {
+                "role": "user",
+                "content": "ready",
+            },
+        ],
+        temperature=0.0,
+        max_tokens=4,
+        stream=False,
+    )
+
+
 async def run_task(
     client: OpenAI,
     env: MyEnv,
@@ -460,7 +480,7 @@ async def run_task(
 
     try:
         if not config.api_key:
-            raise RuntimeError("HF_TOKEN environment variable is not set")
+            raise RuntimeError("API_KEY or HF_TOKEN environment variable is not set")
 
         result = await env.reset(task_name=config.task_name.value)
         observation = result.observation
@@ -533,6 +553,8 @@ async def main() -> None:
         ]
 
     should_exit_with_error = False
+
+    ensure_proxy_call(client=client, config=config)
 
     await env.connect()
     try:
